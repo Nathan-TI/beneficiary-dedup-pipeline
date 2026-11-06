@@ -1,0 +1,74 @@
+import pandas as pd
+import pytest
+
+from pipeline import dedup, evaluate, generate, normalize, quality
+
+
+@pytest.mark.parametrize("raw", ["0911223344", "+251911223344", "251911223344", "0911 223 344"])
+def test_phone_formats_normalise_to_same_number(raw):
+    assert normalize.clean_phone(raw) == "911223344"
+
+
+@pytest.mark.parametrize("raw", ["0911", "12345", "n/a", None])
+def test_invalid_phones_rejected(raw):
+    assert normalize.clean_phone(raw) is None
+
+
+def test_name_key_collapses_romanisation_variants():
+    keys = {normalize.name_key(normalize.clean_name(n)) for n in ["Mohammed", "Mohamed", "Mohammad", " MOHAMAD "]}
+    assert len(keys) == 1
+
+
+def _rec(**kw):
+    base = dict(record_id="R1", first_name="Hiwot", father_name="Tesfaye", grandfather_name="Girma",
+                sex="F", date_of_birth="1990-03-04", phone="0911223344", id_number=None,
+                region="Afar", zone="Zone A", woreda="Woreda 01", kebele="Kebele 01",
+                household_size=4, registration_date="2026-04-01", enumerator_id="ENUM-001")
+    base.update(kw)
+    return base
+
+
+def _score(a, b):
+    n = normalize.normalize(pd.DataFrame([_rec(**a), _rec(record_id="R2", **b)]))
+    return dedup.score_pair(n.iloc[0], n.iloc[1])[0]
+
+
+def test_spelling_variant_with_swapped_dob_matches():
+    assert _score({}, {"first_name": "Hiwet", "father_name": "Tesfay", "date_of_birth": "1990-04-03",
+                       "phone": "+251911223344"}) >= dedup.MATCH_AT
+
+
+def test_sibling_is_not_merged():
+    # Same father, grandfather, kebele and family phone, but a different person.
+    assert _score({}, {"first_name": "Selam", "date_of_birth": "1994-08-12"}) < dedup.REVIEW_AT
+
+
+def test_different_national_ids_never_merge():
+    assert _score({"id_number": "111111111111"}, {"id_number": "222222222222"}) < dedup.REVIEW_AT
+
+
+def test_name_only_match_goes_to_review_not_auto_merge():
+    s = _score({"date_of_birth": None, "phone": None}, {"date_of_birth": None, "phone": None})
+    assert dedup.REVIEW_AT <= s < dedup.MATCH_AT
+
+
+def test_quality_checks_flag_defects():
+    df = pd.DataFrame([_rec(), _rec(record_id="R2", phone="12345", date_of_birth="2030-01-01",
+                                    household_size=0, sex="X")])
+    rules = set(quality.run_checks(df).query("record_id == 'R2'")["rule"])
+    assert {"Invalid phone format", "Date of birth in future",
+            "Household size out of range (1-20)", "Non-standard sex value"} <= rules
+    assert quality.run_checks(df).query("record_id == 'R1'").empty
+
+
+@pytest.mark.parametrize("seed", [1, 7])
+def test_end_to_end_accuracy(seed):
+    raw, truth = generate.generate(n_people=1500, seed=seed)
+    norm = normalize.normalize(raw)
+    scored = dedup.score_candidates(norm, dedup.candidate_pairs(norm))
+    matched = scored.loc[scored["decision"] == "match", ["left", "right"]].itertuples(index=False)
+    m = evaluate.pairwise_metrics(dedup.cluster(raw["record_id"], matched), truth)
+    baseline = evaluate.pairwise_metrics(dedup.baseline_clusters(norm), truth)
+    assert m["precision"] >= 0.97
+    assert m["recall"] >= 0.88
+    assert m["f1"] > baseline["f1"] + 0.3

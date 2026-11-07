@@ -72,3 +72,22 @@ def test_end_to_end_accuracy(seed):
     assert m["precision"] >= 0.97
     assert m["recall"] >= 0.88
     assert m["f1"] > baseline["f1"] + 0.3
+
+
+def test_llm_review_with_fake_model():
+    from pipeline import llm_review
+    raw, truth = generate.generate(n_people=300, seed=3)
+    person = dict(zip(truth["record_id"], truth["person_id"]))
+    ids = raw["record_id"].tolist()
+    pairs = pd.DataFrame({"left": ids[:6], "right": ids[1:7], "score": [0.8] * 6})
+
+    def fake_ask(prompt):  # always says "different people", wrapped in chatter like a real model might
+        assert "Record A" in prompt and "grandfather_name" in prompt
+        return 'Sure. {"same_person": false, "confidence": 0.9, "reason": "different first names"}'
+
+    verdicts = llm_review.review(pairs, raw, fake_ask)
+    assert verdicts["same_person"].eq(False).all()
+    m = llm_review.evaluate(verdicts, truth)
+    actual_dupes = sum(person[a] == person[b] for a, b in zip(pairs.left, pairs.right))
+    assert m["pairs_judged"] == 6 and m["missed_duplicates"] == actual_dupes and m["false_merges"] == 0
+    assert llm_review.parse_reply("no json here")["same_person"] is None

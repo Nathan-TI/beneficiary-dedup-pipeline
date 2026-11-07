@@ -10,4 +10,5 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: pytest -q
-      - run: python run_pipeline.py --people 2000
+      - name: Pipeline + dbt build (DuckDB)
+        run: ./run_all.sh --people 2000

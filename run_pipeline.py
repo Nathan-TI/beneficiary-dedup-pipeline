@@ -49,6 +49,17 @@ def main() -> None:
     gold = dedup.golden_records(raw, clusters)
     gold.to_csv(args.out / "golden_records.csv", index=False)
 
+    # Raw inputs for the dbt project (dbt/): the warehouse models start from these three files.
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+    if args.input:
+        raw.to_csv(data_dir / "raw_records.csv", index=False)
+    (scored[["left", "right", "score", "decision"]]
+     .rename(columns={"left": "record_id_a", "right": "record_id_b", "score": "match_score"})
+     .to_csv(data_dir / "match_pairs.csv", index=False))
+    pd.DataFrame({"record_id": list(clusters), "cluster_id": list(clusters.values())}).to_csv(
+        data_dir / "record_clusters.csv", index=False)
+
     metrics = None
     if truth is not None:
         # Simulate a reviewer who correctly confirms or rejects every pair in the review queue.

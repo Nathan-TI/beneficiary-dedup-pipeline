@@ -1,0 +1,19 @@
+name: beneficiary_analytics
+version: "1.0.0"
+config-version: 2
+profile: beneficiary_analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  beneficiary_analytics:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

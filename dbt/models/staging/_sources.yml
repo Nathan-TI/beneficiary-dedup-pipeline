@@ -1,0 +1,30 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Raw outputs of the Python pipeline. On DuckDB they are read straight from the CSVs in ../data;
+      on BigQuery they are tables loaded by scripts/load_bigquery.py into the raw_beneficiary dataset.
+    schema: raw_beneficiary
+    tables:
+      - name: raw_records
+        description: One row per registration exactly as captured in the field (all text, nothing cleaned).
+        config:
+          meta:
+            external_location: "read_csv('{{ env_var('DATA_DIR', '../data') }}/raw_records.csv', all_varchar=true, header=true)"
+        columns:
+          - name: record_id
+            data_tests: [unique, not_null]
+      - name: match_pairs
+        description: Every candidate pair scored by the Python matcher, with its decision.
+        config:
+          meta:
+            external_location: "read_csv('{{ env_var('DATA_DIR', '../data') }}/match_pairs.csv', header=true)"
+      - name: record_clusters
+        description: Record-to-person assignment after auto-merging (union-find over matched pairs).
+        config:
+          meta:
+            external_location: "read_csv('{{ env_var('DATA_DIR', '../data') }}/record_clusters.csv', header=true)"
+        columns:
+          - name: record_id
+            data_tests: [unique, not_null]

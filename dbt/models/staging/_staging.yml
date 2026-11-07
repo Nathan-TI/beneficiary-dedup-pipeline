@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: stg_registrations
+    description: Field registrations with names, sex, dates and phones standardised. Raw values kept in *_raw columns.
+    columns:
+      - name: record_id
+        data_tests: [unique, not_null]
+      - name: sex
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['F', 'M']
+      - name: phone
+        description: 9-digit mobile number (9XXXXXXXX or 7XXXXXXXX); null when the captured value is invalid.
+        data_tests: [valid_et_mobile]
+  - name: stg_match_pairs
+    description: Candidate pairs scored by the Python matcher.
+    columns:
+      - name: decision
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['match', 'review', 'no match']
+  - name: stg_record_clusters
+    description: Which person each registration belongs to after auto-merging.
+    columns:
+      - name: record_id
+        data_tests: [unique, not_null]
+      - name: person_key
+        data_tests: [not_null]

@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: dim_beneficiary
+    description: Golden record, one row per real person after deduplication.
+    columns:
+      - name: person_key
+        description: Stable key for the person (the lowest record_id in their cluster).
+        data_tests: [unique, not_null]
+      - name: surviving_record_id
+        data_tests: [unique, not_null]
+      - name: phone
+        data_tests: [valid_et_mobile]
+      - name: registration_count
+        description: How many field registrations were merged into this person.
+        data_tests: [not_null]
+
+  - name: fct_registrations
+    description: One row per field registration with the person it resolved to and its quality flags.
+    columns:
+      - name: record_id
+        data_tests: [unique, not_null]
+      - name: person_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_beneficiary')
+                field: person_key
+
+  - name: mart_dq_by_rule
+    description: Failure count and rate for each data-quality rule.
+    columns:
+      - name: rule_code
+        data_tests: [unique, not_null]
+      - name: severity
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['critical', 'warning']
+
+  - name: mart_enumerator_quality
+    description: Issue and duplicate rates per enumerator, to target retraining.
+    columns:
+      - name: enumerator_id
+        data_tests: [unique, not_null]
+
+  - name: mart_woreda_summary
+    description: Registrations, unique people, duplicate rate and data quality by woreda.
+
+  - name: mart_review_queue
+    description: Borderline pairs for manual review, side by side.

@@ -1,0 +1,17 @@
+beneficiary_analytics:
+  target: duckdb
+  outputs:
+    # Local / CI: no account needed. Reads the CSVs in ../data.
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', '../data/warehouse.duckdb') }}"
+      threads: 4
+    # BigQuery sandbox (free, no card). Run `gcloud auth application-default login` once.
+    bigquery:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT', 'your-gcp-project-id') }}"
+      dataset: beneficiary_analytics
+      location: US
+      threads: 4
+      job_execution_timeout_seconds: 300

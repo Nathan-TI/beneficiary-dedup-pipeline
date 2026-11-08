@@ -124,7 +124,7 @@ Sandbox tables expire after 60 days. Re-run the last two commands to rebuild.
 `pipeline/llm_review.py` asks a large language model to judge each borderline pair from the two records, then scores those judgements against ground truth. It reports accuracy, false merges and missed duplicates, which shows how much reviewer time an LLM could realistically save.
 
 ```bash
-export LLM_API_URL=https://<provider>/v1/chat/completions
+export LLM_API_URL=https://<provider>/v1/chat/completions   # any chat-completions compatible API
 export LLM_API_KEY=...
 export LLM_MODEL=<model name>
 python -m pipeline.llm_review --limit 100
@@ -199,6 +199,6 @@ Python · pandas · RapidFuzz · dbt · DuckDB · BigQuery · SQL · LLM APIs ·
 
 ## Author
 
-Nathan Tibebe, data analyst with hands-on experience in large-scale beneficiary registration, identity management and data quality. [LinkedIn](https://www.linkedin.com/in/YOUR-PROFILE)
+Nathan Tibebe, data analyst with hands-on experience in large-scale beneficiary registration, identity management and data quality. [LinkedIn](https://www.linkedin.com/in/nathan-tibebe-30026a19a/)
 
 MIT licensed.

@@ -600,7 +600,8 @@ def _panel(id_, title, intro, body):
 def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.DataFrame,
           gold: pd.DataFrame, raw: pd.DataFrame, ins: dict | None = None,
           repo: str = "Nathan-TI/beneficiary-dedup-pipeline", author: str = "Nathan Tibebe",
-          bench: list | None = None, tests_n: int = 28) -> str:
+          bench: list | None = None, tests_n: int = 28,
+          linkedin: str = "https://www.linkedin.com/in/nathan-tibebe-30026a19a/") -> str:
     ins, bench = ins or {}, bench or []
     m = summary.get("metrics") or {}
     pm = m.get("pipeline")
@@ -920,7 +921,8 @@ If a required column cannot be found, the system stops and lists the missing fie
 <title>Beneficiary Deduplication &amp; Data-Quality Pipeline — Report</title><style>{CSS}</style></head>
 <body><div class="viz-root">
 <div class="strip"><div class="in"><span>Portfolio project by <b>{E(author)}</b></span>
-<a href="https://github.com/{repo}">View the code</a><a href="{pages}/dbt-docs.html">Technical docs</a></div></div>
+<a href="https://github.com/{repo}">View the code</a><a href="{pages}/dbt-docs.html">Technical docs</a>
+<a href="{linkedin}">LinkedIn</a></div></div>
 <div class="wrap">
 <header class="hero"><h1>Beneficiary Registration Quality and Deduplication Report</h1>
 <p>This report reviews beneficiary registration data for errors, identifies individuals registered more than once (including where
@@ -931,7 +933,7 @@ names, dates of birth or phone numbers are recorded differently), and sets out r
 <nav class="tabs" role="tablist" aria-label="Report sections">{tabs_html}<span class="sp"></span>
 <button class="btn no-print" data-open-help>Help</button></nav>
 {summary_tab}{act_tab}{quality_tab}{dup_tab}{perf_tab}{method_tab}{fb_tab}
-<footer>Built by {E(author)} with Python, SQL and dbt · <a href="https://github.com/{repo}">Source code</a></footer>
+<footer>Designed and built by {E(author)} with Python, SQL and dbt · <a href="https://github.com/{repo}">Source code</a> · <a href="{linkedin}">LinkedIn</a></footer>
 </div>{help_drawer}<div id="tip" role="tooltip"></div></div>
 <script type="application/json" id="report-data">{data_json}</script>
 <script>{JS}</script></body></html>"""

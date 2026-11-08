@@ -1,10 +1,10 @@
 # Beneficiary Deduplication & Data-Quality Pipeline
 
-![tests](https://github.com/YOUR-USERNAME/beneficiary-dedup-pipeline/actions/workflows/ci.yml/badge.svg)
+![tests](https://github.com/Nathan-TI/beneficiary-dedup-pipeline/actions/workflows/ci.yml/badge.svg)
 
 A Python + dbt pipeline that checks registration data for quality problems, finds people who were registered more than once, and models the result into warehouse tables a programme team can query. It runs on DuckDB locally and on BigQuery. It catches duplicates even when names are spelled differently, dates of birth are mistyped, or phone numbers are written in different formats.
 
-**[View the live report →](https://YOUR-USERNAME.github.io/beneficiary-dedup-pipeline/)** · **[Browse the dbt docs and lineage →](https://YOUR-USERNAME.github.io/beneficiary-dedup-pipeline/dbt-docs.html)**
+**[View the live report →](https://nathan-ti.github.io/beneficiary-dedup-pipeline/)** · **[Browse the dbt docs and lineage →](https://nathan-ti.github.io/beneficiary-dedup-pipeline/dbt-docs.html)**
 
 All data is **synthetic** and no real person is represented. Because the generator knows which records belong to the same person, accuracy is **measured against ground truth** rather than estimated.
 

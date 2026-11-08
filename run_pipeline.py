@@ -90,7 +90,9 @@ def main() -> None:
     }
     (args.out / "summary.json").write_text(json.dumps(summary, indent=2))
     ins = insights.build(raw, gold, issues, scored, clusters, truth)
-    html = report.build(summary, issues, comp, scored, gold, raw, ins, repo=args.repo)
+    bench_path = Path("benchmarks/benchmark.json")
+    bench = json.loads(bench_path.read_text()) if bench_path.exists() else None
+    html = report.build(summary, issues, comp, scored, gold, raw, ins, repo=args.repo, bench=bench)
     (args.out / "report.html").write_text(html, encoding="utf-8")
     Path("docs").mkdir(exist_ok=True)
     Path("docs/index.html").write_text(html, encoding="utf-8")

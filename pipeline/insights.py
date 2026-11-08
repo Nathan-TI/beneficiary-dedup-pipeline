@@ -8,16 +8,20 @@ from .normalize import clean_phone
 
 # Where each data-quality rule should be fixed at the source (data-collection form / training).
 SOURCE_FIXES = {
-    "Invalid phone format": "Add a 10-digit phone pattern check (09/07 + 8 digits) to the registration form.",
-    "Non-standard sex value": "Replace free-text sex with a two-option dropdown.",
-    "Household size out of range (1-20)": "Add a 1–20 range constraint to household size.",
-    "Invalid first name": "Allow letters only in name fields and block placeholders like 'N/A'.",
-    "Invalid registration date": "Fill the registration date automatically from the device.",
+    "Phone number in wrong format": "Only accept 10-digit numbers starting with 09 or 07.",
+    "Sex not written as F or M": "Use a two-choice list (F / M) instead of free text.",
+    "Household size not between 1 and 20": "Only accept numbers from 1 to 20.",
+    "First name contains numbers or placeholders": "Allow letters only, and block entries like 'N/A' or '???'.",
+    "Registration date not valid": "Fill in the date automatically from the phone or tablet.",
     "Missing sex": "Make sex a required field.",
-    "Date of birth in future": "Use a date picker that blocks future dates.",
-    "Implausible age (>110)": "Warn when the computed age is over 100 and ask for confirmation.",
-    "Unparseable date of birth": "Use a date picker instead of free-text dates, with an 'age only' option.",
+    "Birth date is in the future": "Use a calendar picker that blocks future dates.",
+    "Age over 110": "Ask the enumerator to confirm any age over 100.",
+    "Birth date cannot be read": "Use a calendar picker instead of typing dates, with an 'age only' option.",
     "Missing first name": "Make first name a required field.",
+    "Missing birth date": "Make birth date required, with an 'age only' option.",
+    "Missing father's name": "Make father's name a required field.",
+    "Missing woreda": "Pick location from a list instead of typing it.",
+    "Missing kebele": "Pick location from a list instead of typing it.",
 }
 
 
@@ -48,7 +52,7 @@ def enumerators(df: pd.DataFrame) -> list[dict]:
     flag_dup = g["duplicate_rate"].mean() + 1.5 * g["duplicate_rate"].std()
     g["flag"] = (g["issue_rate"] > flag_issue) | (g["duplicate_rate"] > flag_dup)
     g["reason"] = [
-        " and ".join(r for r, c in [("high issue rate", i > flag_issue), ("high duplicate rate", d > flag_dup)] if c)
+        " and ".join(r for r, c in [("many errors", i > flag_issue), ("many repeat registrations", d > flag_dup)] if c)
         for i, d in zip(g["issue_rate"], g["duplicate_rate"])]
     return g.sort_values(["flag", "issue_rate"], ascending=False).to_dict("records")
 
@@ -100,26 +104,26 @@ def build(raw, gold, issues, scored, clusters, truth=None) -> dict:
     flagged = [e for e in enums if e["flag"]]
     worst = wors[:3]
     recs = [
-        {"title": f"Remove {dup_n:,} duplicate registrations before the next distribution",
-         "detail": f"{100 * dup_n / len(df):.1f}% of registrations belong to someone already on the list. "
-                   "Use the cost calculator below to see what this avoids per cycle.",
-         "owner": "Programme / CBT", "impact": "high"},
-        {"title": f"Fix data quality at the source: {by_rule.index[0].lower()} first",
-         "detail": " ".join(f"{r}: {SOURCE_FIXES.get(r, 'Add a form-level validation.')}"
+        {"title": f"Remove {dup_n:,} repeat registrations before the next distribution",
+         "detail": f"{100 * dup_n / len(df):.1f}% of registrations are people who were already on the list. "
+                   "Removing them stops assistance being paid twice. See the money calculator below.",
+         "owner": "Programme / cash transfers team", "impact": "high"},
+        {"title": "Change the registration form to stop the 3 most common errors",
+         "detail": " ".join(f"{r} ({int(by_rule[r]):,}): {SOURCE_FIXES.get(r, 'add a check in the form.')}"
                             for r in by_rule.index[:3]),
-         "owner": "IM / data collection", "impact": "high"},
-        {"title": f"Coach {len(flagged)} enumerator{'s' if len(flagged) != 1 else ''} with above-normal error rates",
+         "owner": "Information management", "impact": "high"},
+        {"title": f"Coach {len(flagged)} enumerator{'s' if len(flagged) != 1 else ''} whose results are well above average",
          "detail": ", ".join(f"{e['enumerator_id']} ({e['reason']})" for e in flagged[:6]) or "No enumerator stands out.",
          "owner": "Field coordination", "impact": "medium"},
-        {"title": "Prioritise verification in " + ", ".join(w["woreda"] for w in worst),
-         "detail": "Highest duplicate rates: " + "; ".join(
+        {"title": "Send verification teams to " + ", ".join(w["woreda"] for w in worst) + " first",
+         "detail": "These places have the most repeat registrations: " + "; ".join(
              f"{w['woreda']} ({w['region']}) {w['duplicate_rate']}%" for w in worst) + ".",
          "owner": "Area offices", "impact": "medium"},
-        {"title": f"Expand national ID capture (now {_pct(df['has_id'])}% of registrations)",
+        {"title": f"Record national ID numbers more often (only {_pct(df['has_id'])}% have one today)",
          "detail": ("Every pair" if review_missing_id >= 0.995 else f"{100 * review_missing_id:.0f}% of the pairs")
-                   + " a reviewer must check lacks a valid national ID on at least one side. With an ID on both "
-                   "records, these become automatic decisions, which cuts review time.",
-         "owner": "IM / Fayda integration", "impact": "medium"},
+                   + " that needs a person to check is missing a national ID on at least one record. With an ID on both, "
+                   "the system can decide on its own, which saves staff time.",
+         "owner": "Information management / national ID team", "impact": "medium"},
     ]
     return {
         "enumerators": enums, "woredas": wors, "weekly": weeks,

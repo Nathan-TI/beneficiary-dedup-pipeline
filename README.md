@@ -8,16 +8,32 @@ A Python + dbt pipeline that checks registration data for quality problems, find
 
 All data is **synthetic** and no real person is represented. Because the generator knows which records belong to the same person, accuracy is **measured against ground truth** rather than estimated.
 
-## The report: built for management decisions
+## The report: one tab for each audience
 
-The [live report](https://nathan-ti.github.io/beneficiary-dedup-pipeline/) is generated on every run and works offline. It includes:
+The [live report](https://nathan-ti.github.io/beneficiary-dedup-pipeline/) is rebuilt on every run, uses plain language, and works offline.
 
-- **Key findings and recommended actions**, generated from the data, each with an owner. Examples: remove duplicates before the next distribution, fix the top data-quality errors in the registration form, coach flagged enumerators, prioritise verification in hotspot woredas, expand national ID capture.
-- **Cost calculator**: enter a transfer value and number of months to see the assistance that removing duplicates avoids, plus the staff time needed to clear the review queue.
-- **Threshold explorer**: a slider showing how the auto-merge threshold trades accuracy (precision, recall, wrong merges) against reviewer workload, with a plain-language recommendation.
-- **Registration trend, location hotspots and enumerator performance**, with sortable and filterable tables.
-- **Help**: a guided 1-minute tour, a glossary, an FAQ, and a "How to read this" note under every section.
-- **Feedback form**: stakeholders describe a new requirement or issue, and it opens as a pre-filled GitHub issue (template in `.github/ISSUE_TEMPLATE/`). No server needed.
+| Tab | For | What it answers |
+|---|---|---|
+| **Summary** | Managers | How many real people? Five recommended actions with owners. Money saved by removing repeats (editable calculator). Can we trust it? |
+| **Where to act** | Area offices, field coordinators | Weekly trend of repeat registrations, location hotspots (heat-shaded, filterable, downloadable), and an enumerator scatter chart showing who needs coaching |
+| **Data quality** | Information management | Most common errors (must-fix vs should-fix), the registration-form change that prevents each one, and field completeness |
+| **Duplicates** | Reviewers | Real examples of repeats found, the full review queue in plain language ("why it needs a person"), downloadable |
+| **Performance** | Donors, auditors, anyone who needs to trust it | Accuracy vs exact matching, an interactive setting explorer, speed and scale tests up to 23,790 registrations, and built-in quality checks |
+| **How it works** | Technical readers | Six steps, the tools used, and privacy notes |
+| **Feedback** | Everyone | A short form that opens a pre-filled GitHub issue (template in `.github/ISSUE_TEMPLATE/`) |
+
+It also has a guided 1-minute tour, a help panel with a glossary, "How to read this" notes, CSV downloads, sortable tables, shareable tab links (`#performance`), print/PDF, and dark mode.
+
+## Speed and scale
+
+`python -m pipeline.benchmark` runs the full matching at several sizes (results in `benchmarks/benchmark.json`):
+
+| Registrations | Time | Per second | Correct merges | Repeats caught |
+|---|---|---|---|---|
+| 1,171 | 0.7 s | 1,642 | 100% | 93.1% |
+| 4,748 | 2.9 s | 1,625 | 100% | 96.4% |
+| 11,824 | 6.8 s | 1,743 | 99.9% | 95.9% |
+| 23,790 | 14.9 s | 1,596 | 99.8% | 94.8% |
 
 ## Results (4,780 synthetic records)
 
@@ -122,7 +138,7 @@ pip install -r requirements.txt
 python run_pipeline.py                 # Python part only, 4,000 synthetic people (default)
 python run_pipeline.py --people 20000  # bigger run
 python run_pipeline.py --input your_file.csv   # your own data (no ground truth, so no accuracy scores)
-pytest -q                              # 18 tests
+pytest -q                              # 19 tests
 ```
 
 Outputs go to `output/`:
@@ -145,6 +161,7 @@ pipeline/
   dedup.py       blocking, scoring, clustering, golden records
   evaluate.py    pairwise precision / recall / F1
   insights.py    management insights and recommended actions
+  benchmark.py   speed and accuracy at several data sizes
   report.py      interactive HTML report (no external assets)
   llm_review.py  optional LLM second opinion on the review queue
 dbt/             staging -> intermediate -> marts, tests, cross-database macros

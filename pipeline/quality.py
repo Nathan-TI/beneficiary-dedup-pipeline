@@ -10,6 +10,7 @@ from .normalize import clean_phone
 TODAY = pd.Timestamp("2026-11-01")
 NAME_OK = re.compile(r"^[A-Za-z][A-Za-z' -]{1,}$")
 
+PLAIN = {"date_of_birth": "birth date", "father_name": "father's name"}
 REQUIRED = ["first_name", "father_name", "sex", "date_of_birth", "region", "zone", "woreda", "kebele"]
 
 
@@ -25,33 +26,33 @@ def run_checks(df: pd.DataFrame) -> pd.DataFrame:
     checks = []
     for col in REQUIRED:
         blank = df[col].isna() | (df[col].astype(str).str.strip() == "")
-        checks.append(_issue(f"Missing {col.replace('_', ' ')}", "critical", col, blank, df))
+        checks.append(_issue(f"Missing {PLAIN.get(col, col.replace('_', ' '))}", "critical", col, blank, df))
 
     name = df["first_name"].fillna("").astype(str).str.strip()
-    checks.append(_issue("Invalid first name", "critical", "first_name",
+    checks.append(_issue("First name contains numbers or placeholders", "critical", "first_name",
                          (name != "") & ~name.str.match(NAME_OK), df))
 
     has_phone = df["phone"].notna() & (df["phone"].astype(str).str.strip() != "")
-    checks.append(_issue("Invalid phone format", "warning", "phone",
+    checks.append(_issue("Phone number in wrong format", "warning", "phone",
                          has_phone & df["phone"].map(clean_phone).isna(), df))
 
     sex = df["sex"].fillna("").astype(str).str.strip()
-    checks.append(_issue("Non-standard sex value", "warning", "sex",
+    checks.append(_issue("Sex not written as F or M", "warning", "sex",
                          (sex != "") & ~sex.isin(["F", "M"]), df))
 
     dob = pd.to_datetime(df["date_of_birth"], format="%Y-%m-%d", errors="coerce")
     has_dob = df["date_of_birth"].notna() & (df["date_of_birth"].astype(str).str.strip() != "")
-    checks.append(_issue("Unparseable date of birth", "critical", "date_of_birth", has_dob & dob.isna(), df))
-    checks.append(_issue("Date of birth in future", "critical", "date_of_birth", dob > TODAY, df))
-    checks.append(_issue("Implausible age (>110)", "warning", "date_of_birth",
+    checks.append(_issue("Birth date cannot be read", "critical", "date_of_birth", has_dob & dob.isna(), df))
+    checks.append(_issue("Birth date is in the future", "critical", "date_of_birth", dob > TODAY, df))
+    checks.append(_issue("Age over 110", "warning", "date_of_birth",
                          dob < TODAY - pd.DateOffset(years=110), df))
 
     hh = pd.to_numeric(df["household_size"], errors="coerce")
-    checks.append(_issue("Household size out of range (1-20)", "warning", "household_size",
+    checks.append(_issue("Household size not between 1 and 20", "warning", "household_size",
                          (hh < 1) | (hh > 20), df))
 
     reg = pd.to_datetime(df["registration_date"], format="%Y-%m-%d", errors="coerce")
-    checks.append(_issue("Invalid registration date", "warning", "registration_date", reg.isna(), df))
+    checks.append(_issue("Registration date not valid", "warning", "registration_date", reg.isna(), df))
 
     issues = pd.concat(checks, ignore_index=True)
     issues["value"] = issues["value"].astype(str)

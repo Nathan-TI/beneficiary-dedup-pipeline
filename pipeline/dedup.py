@@ -96,10 +96,11 @@ def score_pair(r1, r2) -> tuple[float, dict]:
 
 
 def score_candidates(df: pd.DataFrame, pairs) -> pd.DataFrame:
+    rec = dict(zip(df.index, df.itertuples(index=False)))   # fast row access (df.loc per pair is slow)
     rows = []
     for i, j in pairs:
-        s, f = score_pair(df.loc[i], df.loc[j])
-        rows.append({"left": df.at[i, "record_id"], "right": df.at[j, "record_id"], "score": s,
+        s, f = score_pair(rec[i], rec[j])
+        rows.append({"left": rec[i].record_id, "right": rec[j].record_id, "score": s,
                      **{f"sim_{k}": (None if v is None else round(v, 3)) for k, v in f.items()}})
     out = pd.DataFrame(rows)
     out["decision"] = pd.cut(out["score"], [-1, REVIEW_AT, MATCH_AT, 2],

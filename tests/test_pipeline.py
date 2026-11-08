@@ -56,8 +56,8 @@ def test_quality_checks_flag_defects():
     df = pd.DataFrame([_rec(), _rec(record_id="R2", phone="12345", date_of_birth="2030-01-01",
                                     household_size=0, sex="X")])
     rules = set(quality.run_checks(df).query("record_id == 'R2'")["rule"])
-    assert {"Invalid phone format", "Date of birth in future",
-            "Household size out of range (1-20)", "Non-standard sex value"} <= rules
+    assert {"Phone number in wrong format", "Birth date is in the future",
+            "Household size not between 1 and 20", "Sex not written as F or M"} <= rules
     assert quality.run_checks(df).query("record_id == 'R1'").empty
 
 
@@ -108,3 +108,11 @@ def test_insights_for_management():
     recalls = [c["recall"] for c in ins["curve"]]
     assert recalls == sorted(recalls, reverse=True)           # stricter threshold never finds more
     assert all(e["flag"] in (True, False) for e in ins["enumerators"])
+
+
+def test_benchmark_runs_and_stays_accurate():
+    from pipeline import benchmark
+    r = benchmark.run(600, seed=2)
+    assert r["records"] > 600 and r["seconds"] > 0
+    assert r["pairs_scored"] < r["all_pairs"] / 100     # blocking skips >99% of comparisons
+    assert r["precision"] >= 0.97

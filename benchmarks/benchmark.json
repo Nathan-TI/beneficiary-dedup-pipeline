@@ -1,0 +1,46 @@
+[
+  {
+    "people": 1000,
+    "records": 1171,
+    "seconds": 0.71,
+    "records_per_second": 1642,
+    "pairs_scored": 876,
+    "all_pairs": 685035,
+    "precision": 1.0,
+    "recall": 0.931,
+    "f1": 0.9643
+  },
+  {
+    "people": 4000,
+    "records": 4748,
+    "seconds": 2.92,
+    "records_per_second": 1625,
+    "pairs_scored": 9037,
+    "all_pairs": 11269378,
+    "precision": 1.0,
+    "recall": 0.9643,
+    "f1": 0.9818
+  },
+  {
+    "people": 10000,
+    "records": 11824,
+    "seconds": 6.78,
+    "records_per_second": 1743,
+    "pairs_scored": 47753,
+    "all_pairs": 69897576,
+    "precision": 0.9986,
+    "recall": 0.9592,
+    "f1": 0.9785
+  },
+  {
+    "people": 20000,
+    "records": 23790,
+    "seconds": 14.91,
+    "records_per_second": 1596,
+    "pairs_scored": 182914,
+    "all_pairs": 282970155,
+    "precision": 0.9977,
+    "recall": 0.9482,
+    "f1": 0.9723
+  }
+]

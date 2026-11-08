@@ -52,7 +52,7 @@ def enumerators(df: pd.DataFrame) -> list[dict]:
     flag_dup = g["duplicate_rate"].mean() + 1.5 * g["duplicate_rate"].std()
     g["flag"] = (g["issue_rate"] > flag_issue) | (g["duplicate_rate"] > flag_dup)
     g["reason"] = [
-        " and ".join(r for r, c in [("many errors", i > flag_issue), ("many repeat registrations", d > flag_dup)] if c)
+        " and ".join(r for r, c in [("high error rate", i > flag_issue), ("high duplicate rate", d > flag_dup)] if c)
         for i, d in zip(g["issue_rate"], g["duplicate_rate"])]
     return g.sort_values(["flag", "issue_rate"], ascending=False).to_dict("records")
 
@@ -104,26 +104,27 @@ def build(raw, gold, issues, scored, clusters, truth=None) -> dict:
     flagged = [e for e in enums if e["flag"]]
     worst = wors[:3]
     recs = [
-        {"title": f"Remove {dup_n:,} repeat registrations before the next distribution",
-         "detail": f"{100 * dup_n / len(df):.1f}% of registrations are people who were already on the list. "
-                   "Removing them stops assistance being paid twice. See the money calculator below.",
-         "owner": "Programme / cash transfers team", "impact": "high"},
-        {"title": "Change the registration form to stop the 3 most common errors",
+        {"title": f"Remove {dup_n:,} duplicate registrations before the next distribution",
+         "detail": f"{100 * dup_n / len(df):.1f}% of registrations relate to individuals already on the list. "
+                   "Removing them prevents assistance from being paid more than once. See the savings estimate below.",
+         "owner": "Programme / cash-based transfers", "impact": "High"},
+        {"title": "Update the registration form to prevent the three most frequent errors",
          "detail": " ".join(f"{r} ({int(by_rule[r]):,}): {SOURCE_FIXES.get(r, 'add a check in the form.')}"
                             for r in by_rule.index[:3]),
-         "owner": "Information management", "impact": "high"},
-        {"title": f"Coach {len(flagged)} enumerator{'s' if len(flagged) != 1 else ''} whose results are well above average",
-         "detail": ", ".join(f"{e['enumerator_id']} ({e['reason']})" for e in flagged[:6]) or "No enumerator stands out.",
-         "owner": "Field coordination", "impact": "medium"},
-        {"title": "Send verification teams to " + ", ".join(w["woreda"] for w in worst) + " first",
-         "detail": "These places have the most repeat registrations: " + "; ".join(
+         "owner": "Information management", "impact": "High"},
+        {"title": f"Provide follow-up support to {len(flagged)} enumerator{'s' if len(flagged) != 1 else ''} with results well above the team average",
+         "detail": (", ".join(f"{e['enumerator_id']} ({e['reason']})" for e in flagged[:6]) + ". See the Performance tab for details.")
+                   if flagged else "No enumerator is significantly above the team average.",
+         "owner": "Field coordination", "impact": "Medium"},
+        {"title": "Prioritise verification in " + ", ".join(w["woreda"] for w in worst),
+         "detail": "These locations have the highest duplicate rates: " + "; ".join(
              f"{w['woreda']} ({w['region']}) {w['duplicate_rate']}%" for w in worst) + ".",
-         "owner": "Area offices", "impact": "medium"},
-        {"title": f"Record national ID numbers more often (only {_pct(df['has_id'])}% have one today)",
+         "owner": "Area offices", "impact": "Medium"},
+        {"title": f"Increase national ID capture (currently {_pct(df['has_id'])}% of registrations)",
          "detail": ("Every pair" if review_missing_id >= 0.995 else f"{100 * review_missing_id:.0f}% of the pairs")
-                   + " that needs a person to check is missing a national ID on at least one record. With an ID on both, "
-                   "the system can decide on its own, which saves staff time.",
-         "owner": "Information management / national ID team", "impact": "medium"},
+                   + " referred for review lacks a national ID on at least one record. Where both records include a national ID, "
+                   "the system can decide automatically, which reduces staff time.",
+         "owner": "Information management / national ID team", "impact": "Medium"},
     ]
     return {
         "enumerators": enums, "woredas": wors, "weekly": weeks,

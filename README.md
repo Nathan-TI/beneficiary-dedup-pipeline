@@ -14,12 +14,12 @@ The [live report](https://nathan-ti.github.io/beneficiary-dedup-pipeline/) is re
 
 | Tab | For | What it answers |
 |---|---|---|
-| **Summary** | Managers | How many real people? Five recommended actions with owners. Money saved by removing repeats (editable calculator). Can we trust it? |
-| **Where to act** | Area offices, field coordinators | Weekly trend of repeat registrations, location hotspots (heat-shaded, filterable, downloadable), and an enumerator scatter chart showing who needs coaching |
-| **Data quality** | Information management | Most common errors (must-fix vs should-fix), the registration-form change that prevents each one, and field completeness |
-| **Duplicates** | Reviewers | Real examples of repeats found, the full review queue in plain language ("why it needs a person"), downloadable |
-| **Performance** | Donors, auditors, anyone who needs to trust it | Accuracy vs exact matching, an interactive setting explorer, speed and scale tests up to 23,790 registrations, and built-in quality checks |
-| **How it works** | Technical readers | Six steps, the tools used, and privacy notes |
+| **Summary** | Programme management | Unique individuals, five recommended actions with responsible units, an editable savings estimate, and the reliability of the results |
+| **Priority areas** | Area offices, field coordination | Weekly trend of duplicate registrations and location hotspots (shaded, filterable, downloadable) |
+| **Data quality** | Information management | Most frequent errors (critical vs warning), the registration-form change that prevents each one, and data completeness |
+| **Duplicates** | Data reviewers | Examples of duplicates identified, and the full manual-review queue with the reason for each case, downloadable |
+| **Performance** | Management, field coordination, donors, auditors | *System:* accuracy vs exact matching, merge-threshold explorer, speed and scalability tests, quality assurance. *Enumerators:* error and duplicate rates per enumerator, with follow-up flags |
+| **How it works** | Technical readers, data teams | Process overview, accepted data formats and required fields, tools, data protection |
 | **Feedback** | Everyone | A short form that opens a pre-filled GitHub issue (template in `.github/ISSUE_TEMPLATE/`) |
 
 It also has a guided 1-minute tour, a help panel with a glossary, "How to read this" notes, CSV downloads, sortable tables, shareable tab links (`#performance`), print/PDF, and dark mode.
@@ -130,6 +130,26 @@ export LLM_MODEL=<model name>
 python -m pipeline.llm_review --limit 100
 ```
 
+## Accepted data formats
+
+`python run_pipeline.py --input <file>` accepts:
+
+| Format | Extensions | Notes |
+|---|---|---|
+| CSV / text | `.csv`, `.txt` | Comma, semicolon or tab separated (detected automatically) |
+| Tab-separated | `.tsv` | |
+| Excel | `.xlsx`, `.xlsm` | First sheet by default, or `--sheet "Name"`. Save older `.xls` files as `.xlsx` |
+| JSON | `.json` | A list of records |
+| JSON Lines | `.jsonl`, `.ndjson` | One record per line |
+| Parquet | `.parquet` | Needs `pyarrow` (in `requirements-optional.txt`) |
+
+- **Required fields:** first name, father's name, sex, date of birth.
+- **Recommended fields:** grandfather's name, phone, national ID, region, zone, woreda, kebele, household size, registration date, enumerator.
+- **Column names** are matched automatically, including KoboToolbox, ODK and SurveyCTO exports. For example, `First Name`, `DOB`, `Phone Number`, `Fayda ID`, `_submitted_by` and group paths such as `beneficiary/first_name` all work.
+- If a required column is missing, the run stops with a clear message.
+- See `templates/registration_template.csv` for the expected layout.
+- Runs on your own data write to `output/` only and never overwrite the public demo report in `docs/`.
+
 ## Run it
 
 ```bash
@@ -137,8 +157,8 @@ pip install -r requirements.txt
 ./run_all.sh                           # pipeline + dbt build + report + dbt docs
 python run_pipeline.py                 # Python part only, 4,000 synthetic people (default)
 python run_pipeline.py --people 20000  # bigger run
-python run_pipeline.py --input your_file.csv   # your own data (no ground truth, so no accuracy scores)
-pytest -q                              # 19 tests
+python run_pipeline.py --input registrations.xlsx   # your own data (CSV, Excel, JSON, Parquet…)
+pytest -q                              # 28 tests
 ```
 
 Outputs go to `output/`:
@@ -160,12 +180,14 @@ pipeline/
   normalize.py   name, phone, sex and date standardisation
   dedup.py       blocking, scoring, clustering, golden records
   evaluate.py    pairwise precision / recall / F1
+  loaders.py     reads CSV, Excel, JSON, JSON Lines and Parquet; maps column names
   insights.py    management insights and recommended actions
   benchmark.py   speed and accuracy at several data sizes
   report.py      interactive HTML report (no external assets)
   llm_review.py  optional LLM second opinion on the review queue
 dbt/             staging -> intermediate -> marts, tests, cross-database macros
 scripts/         load_bigquery.py
+templates/       registration_template.csv
 tests/           unit tests and end-to-end accuracy tests on two seeds
 run_pipeline.py  Python entry point
 run_all.sh       full run: Python + dbt + docs

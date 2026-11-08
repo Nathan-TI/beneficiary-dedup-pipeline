@@ -3,3 +3,4 @@ rapidfuzz>=3.6
 pytest>=8.0
 dbt-core>=1.9
 dbt-duckdb>=1.9
+openpyxl>=3.1

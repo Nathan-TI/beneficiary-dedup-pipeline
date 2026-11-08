@@ -1,0 +1,3 @@
+record_id,first_name,father_name,grandfather_name,sex,date_of_birth,phone,id_number,region,zone,woreda,kebele,household_size,registration_date,enumerator_id
+R000001,Almaz,Tesfaye,Girma,F,1990-03-04,0911223344,123456789012,Afar,Zone A,Woreda 01,Kebele 01,4,2026-04-01,ENUM-001
+R000002,Mohammed,Ahmed,Ali,M,1985-11-20,+251922334455,,Somali,Zone C,Woreda 06,Kebele 03,6,2026-04-02,ENUM-002

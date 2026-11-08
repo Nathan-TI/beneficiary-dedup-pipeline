@@ -116,3 +116,51 @@ def test_benchmark_runs_and_stays_accurate():
     assert r["records"] > 600 and r["seconds"] > 0
     assert r["pairs_scored"] < r["all_pairs"] / 100     # blocking skips >99% of comparisons
     assert r["precision"] >= 0.97
+
+
+@pytest.mark.parametrize("ext", ["csv", "tsv", "xlsx", "json", "jsonl", "parquet", "semicolon.txt"])
+def test_loader_reads_common_formats(tmp_path, ext):
+    from pipeline import loaders
+    if ext == "parquet":
+        pytest.importorskip("pyarrow")
+    raw, _ = generate.generate(n_people=40, seed=9)
+    # Rename columns the way a KoboToolbox / ODK export would look
+    export = raw.rename(columns={"first_name": "First Name", "father_name": "group_ben/Father Name",
+                                 "date_of_birth": "DOB", "phone": "Phone Number", "id_number": "Fayda ID",
+                                 "enumerator_id": "_submitted_by"})
+    path = tmp_path / f"export.{ext}"
+    if ext == "csv":
+        export.to_csv(path, index=False)
+    elif ext == "tsv":
+        export.to_csv(path, sep="\t", index=False)
+    elif ext == "semicolon.txt":
+        export.to_csv(path, sep=";", index=False)
+    elif ext == "xlsx":
+        export.to_excel(path, index=False)
+    elif ext == "json":
+        export.to_json(path, orient="records")
+    elif ext == "jsonl":
+        export.to_json(path, orient="records", lines=True)
+    else:
+        export.astype(str).to_parquet(path)
+    df, info = loaders.load_registrations(path)
+    assert len(df) == len(raw)
+    assert {"first_name", "father_name", "date_of_birth", "phone", "id_number", "enumerator_id"} <= set(info["columns_mapped"])
+    assert df["first_name"].tolist()[:5] == raw["first_name"].astype(str).str.strip().tolist()[:5]
+
+
+def test_loader_explains_missing_columns(tmp_path):
+    from pipeline import loaders
+    p = tmp_path / "bad.csv"
+    pd.DataFrame({"name_of_person": ["A"], "age": [3]}).to_csv(p, index=False)
+    with pytest.raises(loaders.InputError, match="required columns"):
+        loaders.load_registrations(p)
+    with pytest.raises(loaders.InputError, match="save it as .xlsx"):
+        loaders.load_registrations(tmp_path / "x.xls") if (tmp_path / "x.xls").write_text("x") else None
+
+
+def test_pipeline_runs_on_template():
+    from pipeline import loaders
+    df, info = loaders.load_registrations("templates/registration_template.csv")
+    assert len(df) == 2 and info["format"] == "CSV"
+    assert normalize.normalize(df)["phone_n"].tolist() == ["911223344", "922334455"]

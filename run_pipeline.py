@@ -2,7 +2,7 @@
 
     python run_pipeline.py                  # default 4,000 synthetic people
     python run_pipeline.py --people 20000   # bigger run
-    python run_pipeline.py --input my.csv   # your own file (no ground truth -> no accuracy scores)
+    python run_pipeline.py --input my.xlsx  # your own file: CSV, Excel, JSON, JSON Lines or Parquet
 """
 from __future__ import annotations
 
@@ -13,14 +13,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from pipeline import dedup, evaluate, generate, insights, normalize, quality, report
+from pipeline import dedup, evaluate, generate, insights, loaders, normalize, quality, report
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--people", type=int, default=4000)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--input", type=Path, help="CSV with the same columns as data/raw_records.csv")
+    ap.add_argument("--input", type=Path,
+                    help="Registration file: .csv .txt .tsv .xlsx .json .jsonl or .parquet (see templates/)")
+    ap.add_argument("--sheet", default=None, help="Excel sheet name (default: first sheet)")
     ap.add_argument("--out", type=Path, default=Path("output"))
     ap.add_argument("--repo", default="Nathan-TI/beneficiary-dedup-pipeline",
                     help="GitHub owner/repo that receives feedback from the report")
@@ -29,7 +31,12 @@ def main() -> None:
     t0 = time.time()
 
     if args.input:
-        raw, truth = pd.read_csv(args.input, dtype=str), None
+        try:
+            raw, info = loaders.load_registrations(args.input, args.sheet)
+        except loaders.InputError as e:
+            raise SystemExit(f"Could not use {args.input}: {e}")
+        print(f"Loaded {info['rows']:,} rows from {info['format']} file; columns recognised: {info['columns_mapped']}")
+        truth = None
     else:
         raw, truth = generate.generate(n_people=args.people, seed=args.seed)
         Path("data").mkdir(exist_ok=True)
@@ -94,8 +101,9 @@ def main() -> None:
     bench = json.loads(bench_path.read_text()) if bench_path.exists() else None
     html = report.build(summary, issues, comp, scored, gold, raw, ins, repo=args.repo, bench=bench)
     (args.out / "report.html").write_text(html, encoding="utf-8")
-    Path("docs").mkdir(exist_ok=True)
-    Path("docs/index.html").write_text(html, encoding="utf-8")
+    if not args.input:  # only the synthetic demo updates the public report in docs/
+        Path("docs").mkdir(exist_ok=True)
+        Path("docs/index.html").write_text(html, encoding="utf-8")
     print(json.dumps(summary, indent=2))
 
 

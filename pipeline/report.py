@@ -1,7 +1,7 @@
 """Interactive, self-contained HTML report (no external assets) — works offline and on GitHub Pages.
 
 Organised as tabs for different readers:
-  Summary (managers) · Where to act (field/area teams) · Data quality (data teams) ·
+  Summary (managers) · Priority areas (field/area teams) · Data quality (data teams) ·
   Duplicates (reviewers) · Performance (anyone who needs to trust the results) · How it works · Feedback
 """
 from __future__ import annotations
@@ -62,9 +62,9 @@ def _hbars(rows, label_w=250, unit="", aria="", W=640):
 
 def _accuracy_chart(metrics: dict) -> str:
     series = [("baseline", "Exact matching (common approach)", "var(--c1)"),
-              ("pipeline", "This system, automatic", "var(--c2)"),
-              ("pipeline_after_review", "This system + quick human check", "var(--c3)")]
-    groups = [("precision", "Correct merges"), ("recall", "Duplicates caught"), ("f1", "Overall score")]
+              ("pipeline", "This system (automatic)", "var(--c2)"),
+              ("pipeline_after_review", "This system with manual review", "var(--c3)")]
+    groups = [("precision", "Correct merges"), ("recall", "Duplicates identified"), ("f1", "Overall score")]
     W, left, right, bar, gap, ggap = 640, 130, 60, 16, 3, 22
     pw = W - left - right
     y, parts = 8, []
@@ -103,15 +103,15 @@ def _score_hist(scored: pd.DataFrame) -> str:
     for i, c in enumerate(counts):
         lo, hi = bins[i], bins[i + 1]
         zone, col = (("merged automatically", "var(--c3)") if lo >= MATCH_AT - 1e-9 else
-                     ("checked by a person", "var(--c2)") if lo >= REVIEW_AT - 1e-9 else ("kept apart", "var(--c1)"))
+                     ("referred for manual review", "var(--c2)") if lo >= REVIEW_AT - 1e-9 else ("treated as different individuals", "var(--c1)"))
         x = left + i * bw
         parts.append(f'<g class="hit" data-tip="Score {lo:.3f}–{hi:.3f}: {_fmt(c)} pairs ({zone})">'
                      f'<rect x="{x}" y="{top}" width="{bw}" height="{ph}" fill="transparent"/>'
                      f'<path d="{_col_path(x + 1, top + ph, bw - 2, ph * c / mx)}" fill="{col}"/></g>')
     for t in (0, 0.25, 0.5, 0.75, 1):
         parts.append(f'<text x="{left + pw * t}" y="{H - 10}" text-anchor="middle" class="ax">{t:.2f}</text>')
-    legend = ('<div class="legend"><span class="lg"><i style="background:var(--c1)"></i>Kept apart (different people)</span>'
-              f'<span class="lg"><i style="background:var(--c2)"></i>Checked by a person ({REVIEW_AT}–{MATCH_AT})</span>'
+    legend = ('<div class="legend"><span class="lg"><i style="background:var(--c1)"></i>Treated as different individuals</span>'
+              f'<span class="lg"><i style="background:var(--c2)"></i>Referred for manual review ({REVIEW_AT}–{MATCH_AT})</span>'
               f'<span class="lg"><i style="background:var(--c3)"></i>Merged automatically (≥ {MATCH_AT})</span></div>')
     return legend + f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="How similar each compared pair is">{"".join(parts)}</svg>'
 
@@ -136,13 +136,13 @@ def _threshold_chart(curve: list[dict]) -> str:
     for t in (0.75, 0.80, 0.85, 0.90, 0.95):
         if t0 <= t <= t1:
             parts.append(f'<text x="{x(t)}" y="{H - 10}" text-anchor="middle" class="ax">{t:.2f}</text>')
-    for key, col, name in (("precision", "var(--c1)", "Correct merges"), ("recall", "var(--c2)", "Duplicates caught")):
+    for key, col, name in (("precision", "var(--c1)", "Correct merges"), ("recall", "var(--c2)", "Duplicates identified")):
         pts = " ".join(f"{x(r['t']):.1f},{y(r[key]):.1f}" for r in curve)
         parts.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="2.5" stroke-linejoin="round"/>')
         parts.append(f'<text x="{x(curve[-1]["t"]) + 8}" y="{y(curve[-1][key]) + 4}" class="val">{name}</text>')
     parts.append(f'<line id="thrMarker" x1="{x(MATCH_AT)}" x2="{x(MATCH_AT)}" y1="{top}" y2="{top + ph}" class="thr"/>')
     return (f'<svg id="thrChart" data-left="{left}" data-pw="{pw}" data-t0="{t0}" data-t1="{t1}" viewBox="0 0 {W} {H}" '
-            f'role="img" aria-label="Correct merges and duplicates caught at each setting">{"".join(parts)}</svg>')
+            f'role="img" aria-label="Correct merges and duplicates identified at each threshold">{"".join(parts)}</svg>')
 
 
 def _weekly_bars(weeks):
@@ -180,13 +180,13 @@ def _weekly_line(weeks):
     parts.append(f'<path d="{area}" fill="var(--c2)" opacity=".12"/>')
     parts.append(f'<polyline points="{" ".join(f"{a:.1f},{b:.1f}" for a, b in pts)}" fill="none" stroke="var(--c2)" stroke-width="2.5" stroke-linejoin="round"/>')
     for (a, b), w in zip(pts, weeks):
-        parts.append(f'<g class="hit" data-tip="Week of {w["week"]}: {w["duplicate_rate"]}% were repeat registrations">'
+        parts.append(f'<g class="hit" data-tip="Week of {w["week"]}: {w["duplicate_rate"]}% duplicate registrations">'
                      f'<rect x="{a - step / 2}" y="{top}" width="{step}" height="{ph}" fill="transparent"/>'
                      f'<circle cx="{a}" cy="{b}" r="4" fill="var(--c2)" stroke="var(--surface-1)" stroke-width="2"/></g>')
     for i, w in enumerate(weeks):
         if i % 4 == 0:
             parts.append(f'<text x="{pts[i][0]}" y="{H - 10}" text-anchor="middle" class="ax">{w["week"][5:]}</text>')
-    return f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="Repeat registrations per week">{"".join(parts)}</svg>'
+    return f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="Duplicate registrations per week">{"".join(parts)}</svg>'
 
 
 def _enum_scatter(enums):
@@ -203,15 +203,15 @@ def _enum_scatter(enums):
         yy = top + ph * (1 - v / ym)
         parts.append(f'<line x1="{left}" x2="{left + pw}" y1="{yy}" y2="{yy}" class="grid"/>'
                      f'<text x="{left - 6}" y="{yy + 4}" text-anchor="end" class="ax">{v:.0f}%</text>')
-    parts.append(f'<text x="{left + pw / 2}" y="{H - 2}" text-anchor="middle" class="ax">Share of registrations with errors →</text>')
-    parts.append(f'<text transform="translate(12 {top + ph / 2}) rotate(-90)" text-anchor="middle" class="ax">Repeat registrations →</text>')
+    parts.append(f'<text x="{left + pw / 2}" y="{H - 2}" text-anchor="middle" class="ax">Error rate →</text>')
+    parts.append(f'<text transform="translate(12 {top + ph / 2}) rotate(-90)" text-anchor="middle" class="ax">Duplicate rate →</text>')
     placed = []
     for e in sorted(enums, key=lambda e: e["flag"]):
         x = left + pw * e["issue_rate"] / xm
         yy = top + ph * (1 - e["duplicate_rate"] / ym)
         col = "var(--c2)" if e["flag"] else "var(--c1)"
-        tip = f'{e["enumerator_id"]}: {e["issue_rate"]}% with errors, {e["duplicate_rate"]}% repeat registrations' + (
-            f' · needs coaching ({e["reason"]})' if e["flag"] else "")
+        tip = f'{e["enumerator_id"]}: error rate {e["issue_rate"]}%, duplicate rate {e["duplicate_rate"]}%' + (
+            f' · follow-up recommended ({e["reason"]})' if e["flag"] else "")
         parts.append(f'<g class="hit" data-tip="{E(tip)}"><circle cx="{x}" cy="{yy}" r="12" fill="transparent"/>'
                      f'<circle cx="{x}" cy="{yy}" r="{6 if e["flag"] else 5}" fill="{col}" stroke="var(--surface-1)" stroke-width="2"/></g>')
         if e["flag"]:
@@ -221,8 +221,8 @@ def _enum_scatter(enums):
             placed.append((x, ly))
             parts.append(f'<text x="{x + 10}" y="{ly}" class="val" style="font-size:11.5px;font-weight:600">{e["enumerator_id"]}</text>')
     legend = ('<div class="legend"><span class="lg"><i style="background:var(--c1);border-radius:50%"></i>Within normal range</span>'
-              '<span class="lg"><i style="background:var(--c2);border-radius:50%"></i>Needs coaching</span></div>')
-    return legend + f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="Enumerators by error rate and repeat registrations">{"".join(parts)}</svg>'
+              '<span class="lg"><i style="background:var(--c2);border-radius:50%"></i>Follow-up recommended</span></div>')
+    return legend + f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="Enumerators by error rate and duplicate rate">{"".join(parts)}</svg>'
 
 
 def _bench_chart(bench):
@@ -247,7 +247,7 @@ def _example_clusters(gold, raw, k=4):
     for _, g in gold[gold["n_records"] > 1].iterrows():
         sub = raw[raw["record_id"].isin(g["merged_record_ids"].split(";"))]
         if sub["first_name"].astype(str).str.strip().str.lower().nunique() > 1 or sub["date_of_birth"].nunique() > 1:
-            out.append(f'<div class="case"><div class="case-h">Person {len(out) + 1} · registered {len(sub)} times</div>'
+            out.append(f'<div class="case"><div class="case-h">Individual {len(out) + 1} · registered {len(sub)} times</div>'
                        + _table(sub[list(cols)].rename(columns=cols)) + "</div>")
         if len(out) == k:
             break
@@ -309,6 +309,7 @@ cursor:pointer;white-space:nowrap;display:inline-flex;gap:7px;align-items:center
 .tab[aria-selected=true]{background:var(--surface-1);border-color:var(--rule);color:var(--text-primary);font-weight:600;
 box-shadow:0 1px 0 color-mix(in srgb,var(--tc) 60%,transparent),inset 0 -3px 0 var(--tc)}
 .tabs .sp{flex:1}
+.subhead{font-size:12.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin:24px 0 2px;font-weight:600}
 .panel{display:none;animation:fade .18s ease}.panel.on{display:block}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .panel-h{display:flex;gap:14px;align-items:flex-start;margin:26px 0 8px}
@@ -456,10 +457,10 @@ if (D.curve.length) {
     $('#tFP').textContent = fmt(r.fp);
     const x = L + PW * (r.t - T0) / (T1 - T0); mk.setAttribute('x1', x); mk.setAttribute('x2', x);
     $('#tAdvice').textContent = r.fp > 0
-      ? `⚠ Too loose: at ${r.t.toFixed(2)}, ${fmt(r.fp)} pairs of different people would be merged by mistake. Move the slider to at least ${best.t.toFixed(2)}.`
+      ? `⚠ Not recommended: at ${r.t.toFixed(2)}, ${fmt(r.fp)} pairs of different individuals would be merged incorrectly. Use a threshold of at least ${best.t.toFixed(2)}.`
       : r.recall < best.recall - 0.02
-      ? `Safe, but strict: no mistakes, but only ${(100 * r.recall).toFixed(1)}% of duplicates are caught automatically and ${fmt(r.review)} pairs need a person. ${best.t.toFixed(2)} is just as safe and catches ${(100 * best.recall).toFixed(1)}%.`
-      : `✓ Best balance: no mistakes, and the most duplicates caught automatically (${(100 * r.recall).toFixed(1)}%).`;
+      ? `Safe but conservative: no incorrect merges, but only ${(100 * r.recall).toFixed(1)}% of duplicates are identified automatically and ${fmt(r.review)} pairs require review. A threshold of ${best.t.toFixed(2)} is equally safe and identifies ${(100 * best.recall).toFixed(1)}%.`
+      : `✓ Recommended: no incorrect merges and the highest automatic identification rate (${(100 * r.recall).toFixed(1)}%).`;
   }
   sl.addEventListener('input', upd); upd();
 }
@@ -472,7 +473,7 @@ function toCSV(rows, cols) {
 function download(name, text) {
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type: 'text/csv'}));
     a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
-  catch (e) { alert('Download is not available here. Open the report from its website to download.'); }
+  catch (e) { alert('Downloads are not available in this view. Please open the report from its website.'); }
 }
 function table(el, rows, cols, file) {
   let key = null, dir = 1, view = rows;
@@ -480,7 +481,7 @@ function table(el, rows, cols, file) {
     view = key ? [...rows].sort((a, b) => (a[key] > b[key] ? 1 : a[key] < b[key] ? -1 : 0) * dir) : rows;
     el.querySelector('tbody').innerHTML = view.map(r => '<tr>' + cols.map(c =>
       `<td class="${c.num ? 'num' : ''} ${c.heat ? 'heat' : ''}" ${c.heat ? `style="background:${c.heat(r[c.k])}"` : ''}>${c.fmt ? c.fmt(r[c.k], r) : r[c.k]}</td>`).join('') + '</tr>').join('')
-      || `<tr><td colspan="${cols.length}">Nothing matches this filter.</td></tr>`;
+      || `<tr><td colspan="${cols.length}">No records match this filter.</td></tr>`;
   }
   el.querySelector('thead').innerHTML = '<tr>' + cols.map(c => `<th class="sort ${c.num ? 'num' : ''}" data-k="${c.k}" tabindex="0" title="Click to sort">${c.label}</th>`).join('') + '</tr>';
   el.querySelectorAll('th').forEach(th => {
@@ -496,26 +497,26 @@ const maxDup = Math.max(...D.woredas.map(w => w.duplicate_rate), 1);
 const heat = (v, mx, c) => `color-mix(in srgb, var(${c}) ${Math.round(8 + 40 * v / mx)}%, transparent)`;
 const wt = table($('#woredaTbl'), D.woredas, [
   {k: 'region', label: 'Region'}, {k: 'woreda', label: 'Woreda'},
-  {k: 'registrations', label: 'Registrations', num: 1, fmt: fmt}, {k: 'people', label: 'Real people', num: 1, fmt: fmt},
-  {k: 'duplicate_rate', label: 'Repeat registrations', num: 1, fmt: pct, heat: v => heat(v, maxDup, '--c2')},
-  {k: 'issue_rate', label: 'With errors', num: 1, fmt: pct}, {k: 'id_coverage', label: 'Have national ID', num: 1, fmt: pct}], 'location_hotspots.csv');
+  {k: 'registrations', label: 'Registrations', num: 1, fmt: fmt}, {k: 'people', label: 'Unique individuals', num: 1, fmt: fmt},
+  {k: 'duplicate_rate', label: 'Duplicate rate', num: 1, fmt: pct, heat: v => heat(v, maxDup, '--c2')},
+  {k: 'issue_rate', label: 'Error rate', num: 1, fmt: pct}, {k: 'id_coverage', label: 'National ID coverage', num: 1, fmt: pct}], 'location_hotspots.csv');
 $('#regionFilter').innerHTML = '<option value="">All regions</option>' + [...new Set(D.woredas.map(w => w.region))].sort().map(r => `<option>${r}</option>`).join('');
 $('#regionFilter').addEventListener('change', e => wt.set(D.woredas.filter(w => !e.target.value || w.region === e.target.value)));
 $('#dlWoreda').addEventListener('click', () => wt.csv());
 
-const status = (f, r) => f ? `<span class="badge" title="${r.reason}"><span class="dot" style="background:var(--warn)"></span>⚠ Needs coaching</span>`
-                           : '<span class="badge"><span class="dot" style="background:var(--good)"></span>✓ OK</span>';
+const status = (f, r) => f ? `<span class="badge" title="${r.reason}"><span class="dot" style="background:var(--warn)"></span>⚠ Follow-up recommended</span>`
+                           : '<span class="badge"><span class="dot" style="background:var(--good)"></span>✓ Within normal range</span>';
 const et = table($('#enumTbl'), D.enumerators, [
   {k: 'enumerator_id', label: 'Enumerator'}, {k: 'registrations', label: 'Registrations', num: 1, fmt: fmt},
-  {k: 'issue_rate', label: 'With errors', num: 1, fmt: pct}, {k: 'duplicate_rate', label: 'Repeat registrations', num: 1, fmt: pct},
-  {k: 'valid_phone', label: 'Valid phone', num: 1, fmt: pct}, {k: 'flag', label: 'Status', fmt: status}], 'enumerators.csv');
+  {k: 'issue_rate', label: 'Error rate', num: 1, fmt: pct}, {k: 'duplicate_rate', label: 'Duplicate rate', num: 1, fmt: pct},
+  {k: 'valid_phone', label: 'Valid phone numbers', num: 1, fmt: pct}, {k: 'flag', label: 'Status', fmt: status}], 'enumerators.csv');
 $('#flagOnly').addEventListener('change', e => et.set(D.enumerators.filter(r => !e.target.checked || r.flag)));
 $('#dlEnum').addEventListener('click', () => et.csv());
 
 const rq = table($('#reviewTbl'), D.review, [
   {k: 'a', label: 'Record A'}, {k: 'b', label: 'Record B'}, {k: 'score', label: 'Similarity', num: 1},
-  {k: 'name_a', label: 'Name on A'}, {k: 'name_b', label: 'Name on B'}, {k: 'dob_a', label: 'Birth date A'}, {k: 'dob_b', label: 'Birth date B'},
-  {k: 'why', label: 'Why it needs a person'}], 'review_queue.csv');
+  {k: 'name_a', label: 'Name (A)'}, {k: 'name_b', label: 'Name (B)'}, {k: 'dob_a', label: 'Date of birth (A)'}, {k: 'dob_b', label: 'Date of birth (B)'},
+  {k: 'why', label: 'Reason for review'}], 'review_queue.csv');
 $('#dlReview').addEventListener('click', () => rq.csv());
 
 // Help panel
@@ -529,14 +530,15 @@ $$('[data-print]').forEach(b => b.addEventListener('click', () => { try { window
 
 // Guided tour across tabs
 const steps = [
-  ['summary', '#kpis', 'The headline: how many registrations came in, how many real people that is, and how many were repeats or had errors.'],
-  ['summary', '#todo', 'Five actions for this week, each with a suggested owner. Start here in a management meeting.'],
-  ['summary', '#money', 'Type in your own transfer amount and number of months to see what removing duplicates saves.'],
-  ['act', '#hotspots', 'Where to act: locations sorted by repeat registrations. Sort any column, filter by region, or download the list.'],
-  ['act', '#enumerators', 'Which enumerators need coaching. Each dot is one enumerator; orange dots are well above average.'],
-  ['quality', '#rules', 'The most common data errors, and the change to the registration form that would stop each one.'],
-  ['performance', '#explorer', 'Can we trust it? Drag the slider to see the trade-off between automatic merging and work for reviewers.'],
-  ['feedback', '#fbCard', 'Need something else? Describe it here and it becomes a tracked request.'],
+  ['summary', '#kpis', 'Key figures: registrations received, unique individuals, duplicate registrations, and registrations with errors.'],
+  ['summary', '#todo', 'Recommended actions, each with a suggested responsible unit. This section is intended for management meetings.'],
+  ['summary', '#money', 'Enter the assistance amount and number of months to estimate the savings from removing duplicates.'],
+  ['act', '#hotspots', 'Locations ranked by duplicate rate. Tables can be sorted, filtered by region and downloaded.'],
+  ['quality', '#rules', 'The most frequent data errors, with the registration form change that would prevent each one.'],
+  ['performance', '#explorer', 'System performance: move the slider to see the trade-off between automatic merging and reviewer workload.'],
+  ['performance', '#enumerators', 'Enumerator performance: each point is one enumerator. Orange points are flagged for follow-up.'],
+  ['method', '#formats', 'Accepted data formats and required fields, for teams preparing their own data.'],
+  ['feedback', '#fbCard', 'Requests for additional analysis or corrections can be submitted here.'],
 ];
 let ti = -1;
 function showStep(i) {
@@ -557,33 +559,33 @@ $('#tourEnd').addEventListener('click', endTour);
 function fbText() {
   const v = id => $(id).value.trim();
   return { title: `[${v('#fbType')}] ${v('#fbSummary') || 'Feedback on the report'}`,
-    body: [`**Type:** ${v('#fbType')}`, `**Part of the report:** ${v('#fbSection')}`, `**How urgent:** ${v('#fbPriority')}`,
+    body: [`**Type:** ${v('#fbType')}`, `**Section:** ${v('#fbSection')}`, `**Priority:** ${v('#fbPriority')}`,
       `**From:** ${v('#fbName') || 'not given'}${v('#fbRole') ? ' (' + v('#fbRole') + ')' : ''}`, '',
-      '**What do you need, or what did you notice?**', v('#fbDetail') || '-', '',
-      '**What decision would this help you make?**', v('#fbDecision') || '-'].join('\n') };
+      '**Description**', v('#fbDetail') || '-', '',
+      '**Decision this will inform**', v('#fbDecision') || '-'].join('\n') };
 }
 $('#fbForm').addEventListener('submit', e => {
   e.preventDefault();
-  if (!$('#fbDetail').value.trim()) { $('#fbStatus').textContent = 'Please tell us what you need first.'; $('#fbDetail').focus(); return; }
+  if (!$('#fbDetail').value.trim()) { $('#fbStatus').textContent = 'Please provide a description before continuing.'; $('#fbDetail').focus(); return; }
   const t = fbText();
   $('#fbLink').href = `https://github.com/${D.repo}/issues/new?labels=feedback&title=${encodeURIComponent(t.title)}&body=${encodeURIComponent(t.body)}`;
   $('#fbLink').style.display = 'inline-flex';
-  $('#fbStatus').textContent = 'Ready. Click "Send on GitHub" (needs a free GitHub account), or copy the text and email it.';
+  $('#fbStatus').textContent = 'The request is ready. Select "Submit on GitHub" (a free GitHub account is required), or copy the text and send it by email.';
 });
 $('#fbCopy').addEventListener('click', async () => {
   const t = fbText();
-  try { await navigator.clipboard.writeText(t.title + '\n\n' + t.body); $('#fbStatus').textContent = 'Copied. Paste it into an email or chat message.'; }
-  catch (e) { $('#fbStatus').textContent = 'Your browser blocked copying. Select the text in the boxes and copy it yourself.'; }
+  try { await navigator.clipboard.writeText(t.title + '\n\n' + t.body); $('#fbStatus').textContent = 'The request has been copied. Paste it into an email or message.'; }
+  catch (e) { $('#fbStatus').textContent = 'Copying was blocked by the browser. Please select and copy the text manually.'; }
 });
 """
 
-TABS = [("summary", "Summary", "var(--c1)", "★", "For managers"),
-        ("act", "Where to act", "var(--c2)", "⌖", "For area offices and field coordinators"),
-        ("quality", "Data quality", "var(--c4)", "✓", "For information management and data teams"),
-        ("duplicates", "Duplicates", "var(--c5)", "⧉", "For reviewers"),
-        ("performance", "Performance", "var(--c3)", "⚡", "For anyone who needs to trust the results"),
-        ("method", "How it works", "var(--c7)", "⚙", "For technical readers"),
-        ("feedback", "Feedback", "var(--c1)", "✉", "For everyone")]
+TABS = [("summary", "Summary", "var(--c1)", "★", "Intended for: programme management"),
+        ("act", "Priority areas", "var(--c2)", "⌖", "Intended for: area offices and field coordination"),
+        ("quality", "Data quality", "var(--c4)", "✓", "Intended for: information management and data teams"),
+        ("duplicates", "Duplicates", "var(--c5)", "⧉", "Intended for: data reviewers"),
+        ("performance", "Performance", "var(--c3)", "⚡", "Intended for: management, field coordination, donors and auditors"),
+        ("method", "How it works", "var(--c7)", "⚙", "Intended for: technical readers and data teams"),
+        ("feedback", "Feedback", "var(--c1)", "✉", "Intended for: all users")]
 
 
 def _panel(id_, title, intro, body):
@@ -598,7 +600,7 @@ def _panel(id_, title, intro, body):
 def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.DataFrame,
           gold: pd.DataFrame, raw: pd.DataFrame, ins: dict | None = None,
           repo: str = "Nathan-TI/beneficiary-dedup-pipeline", author: str = "Nathan Tibebe",
-          bench: list | None = None) -> str:
+          bench: list | None = None, tests_n: int = 28) -> str:
     ins, bench = ins or {}, bench or []
     m = summary.get("metrics") or {}
     pm = m.get("pipeline")
@@ -613,12 +615,12 @@ def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.Da
         return " ".join(str(x) for x in (r["first_name"], r["father_name"], r["grandfather_name"]) if pd.notna(x) and str(x).strip())
     def why(r):
         if pd.isna(r.sim_dob) and pd.isna(r.sim_phone):
-            return "Names match but no birth date or phone to confirm"
+            return "Names match; no date of birth or phone number to confirm"
         if pd.notna(r.sim_dob) and r.sim_dob < 0.7:
-            return "Names match but birth dates differ"
+            return "Names match; dates of birth differ"
         if pd.notna(r.sim_first) and r.sim_first < 0.9:
             return "First names are spelled differently"
-        return "Close match on most details"
+        return "Close match on most fields"
     review_rows = [{"a": r.left, "b": r.right, "score": r.score, "name_a": name(r.left), "name_b": name(r.right),
                     "dob_a": recs.at[r.left, "date_of_birth"], "dob_b": recs.at[r.right, "date_of_birth"], "why": why(r)}
                    for r in rv.itertuples()]
@@ -633,198 +635,237 @@ def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.Da
 
     # ---------------- Summary tab
     kpis = _tiles([
-        ("Registrations received", _fmt(n_in), "from field registration", "var(--c1)"),
-        ("Real people", _fmt(n_people), "after removing repeats", "var(--c3)"),
-        ("Repeat registrations", _fmt(dup), f"{100 * dup / n_in:.1f}% of all registrations", "var(--c2)"),
-        ("Pairs for a quick check", _fmt(summary["review_queue"]), "a person decides", "var(--c4)"),
-        ("Registrations with errors", _fmt(issue_n), f"{100 * issue_n / n_in:.1f}% need fixing", "var(--c5)"),
+        ("Registrations received", _fmt(n_in), "submitted from the field", "var(--c1)"),
+        ("Unique individuals", _fmt(n_people), "after removing duplicates", "var(--c3)"),
+        ("Duplicate registrations", _fmt(dup), f"{100 * dup / n_in:.1f}% of all registrations", "var(--c2)"),
+        ("Pairs for manual review", _fmt(summary["review_queue"]), "requiring a reviewer's decision", "var(--c4)"),
+        ("Registrations with errors", _fmt(issue_n), f"{100 * issue_n / n_in:.1f}% require correction", "var(--c5)"),
     ])
     colors = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c7)"]
     actions = "".join(
         f'<div class="action" style="--ac:{colors[i % 5]}"><b>{E(r["title"])}</b><p>{E(r["detail"])}</p>'
-        f'<div class="tags"><span class="tag">Who: {E(r["owner"])}</span><span class="tag">Impact: {E(r["impact"])}</span></div></div>'
+        f'<div class="tags"><span class="tag">Responsible: {E(r["owner"])}</span><span class="tag">Impact: {E(r["impact"])}</span></div></div>'
         for i, r in enumerate(ins.get("recommendations", [])))
     trust = ""
     if pm:
-        trust = _card("Can we trust these numbers?", "Tested against data where the right answer is known.", f"""
+        trust = _card("Reliability of the results", "Validated against test data where the correct answer is known.", f"""
 <div class="trust">
-<div><b><span class="ok">✓</span>{pm['fp']} people merged by mistake</b>No real person was wrongly joined with someone else.</div>
-<div><b><span class="ok">✓</span>{_pct(pm['recall'])} of repeats caught automatically</b>{_pct(m['pipeline_after_review']['recall'])} after the quick human check.</div>
-<div><b><span class="ok">✓</span>Unclear cases go to a person</b>Nothing borderline is merged without someone checking it.</div>
-<div><b><span class="ok">✓</span>Every merge is recorded</b>Each kept record lists the registrations it replaced, so decisions can be audited.</div>
+<div><b><span class="ok">✓</span>{pm['fp']} incorrect merges</b>No two different individuals were combined into one record.</div>
+<div><b><span class="ok">✓</span>{_pct(pm['recall'])} of duplicates identified automatically</b>{_pct(m['pipeline_after_review']['recall'])} after manual review.</div>
+<div><b><span class="ok">✓</span>Uncertain cases are referred for review</b>No borderline case is merged without human confirmation.</div>
+<div><b><span class="ok">✓</span>Every merge is recorded</b>Each retained record lists the registrations it replaced, providing a full audit trail.</div>
 </div><p class="note"><a href="#performance" data-goto="performance">See full performance results →</a></p>""")
-    summary_tab = _panel("summary", "Summary", "What happened, what it means, and what to do next.", f"""
+    summary_tab = _panel("summary", "Summary", "Key results and recommended actions.", f"""
 <div id="kpis">{kpis}</div>
-{_card("What to do next", "Generated from this data. Each action has a suggested owner.", f'<div class="actions">{actions}</div>', "todo",
-       "The actions are ordered by expected impact. They are recalculated every time new registration data is processed, so this list stays current.")}
-{_card("Money saved by removing repeat registrations", "Change the numbers to match your programme.", f'''
+{_card("Recommended actions", "Derived from this dataset. Each action has a suggested responsible unit.", f'<div class="actions">{actions}</div>', "todo",
+       "Actions are listed in order of expected impact and are recalculated each time new registration data is processed.")}
+{_card("Estimated savings from removing duplicate registrations", "Adjust the values to reflect your programme.", f'''
 <div class="calc">
 <label class="f">Assistance per person per month (USD)<input id="cVal" type="number" min="0" step="1" value="25"></label>
 <label class="f">Number of months<input id="cMonths" type="number" min="0" step="1" value="6"></label>
-<label class="f">Minutes to check one pair<input id="cMins" type="number" min="0" step="0.5" value="2"></label></div>
+<label class="f">Review time per pair (minutes)<input id="cMins" type="number" min="0" step="0.5" value="2"></label></div>
 <div class="outs">
-<div class="out" style="--oc:var(--c3)"><div class="lbl">Saved over the whole period</div><div class="big" id="cSaved">–</div></div>
-<div class="out" style="--oc:var(--c1)"><div class="lbl">Saved every month</div><div class="big" id="cPerCycle">–</div></div>
-<div class="out" style="--oc:var(--c4)"><div class="lbl">Staff time for quick checks</div><div class="big" id="cHours">–</div></div></div>
-<p class="note">Based on {_fmt(dup)} repeat registrations and {_fmt(summary["review_queue"])} pairs to check. These are estimates of assistance that would otherwise be paid twice.</p>''',
-       "money", "Money saved = repeat registrations × assistance per person per month × number of months. Staff time = pairs to check × minutes per pair. The starting values are examples.")}
+<div class="out" style="--oc:var(--c3)"><div class="lbl">Estimated savings for the period</div><div class="big" id="cSaved">–</div></div>
+<div class="out" style="--oc:var(--c1)"><div class="lbl">Estimated savings per month</div><div class="big" id="cPerCycle">–</div></div>
+<div class="out" style="--oc:var(--c4)"><div class="lbl">Staff time for manual review</div><div class="big" id="cHours">–</div></div></div>
+<p class="note">Based on {_fmt(dup)} duplicate registrations and {_fmt(summary["review_queue"])} pairs requiring review. Figures are estimates of assistance that would otherwise be paid more than once.</p>''',
+       "money", "Estimated savings = duplicate registrations × assistance per person per month × number of months. Staff time = pairs requiring review × review time per pair. Default values are illustrative.")}
 {trust}""")
 
-    # ---------------- Where to act tab
+    # ---------------- Priority areas tab
     weeks = ins.get("weekly", [])
     trend = ""
     if len(weeks) > 2:
-        trend = _card("Registration trend", "How many people were registered each week, and how many of them were already on the list.",
+        trend = _card("Registration trend", "Weekly registrations and the share of duplicate registrations.",
                       f'<div class="two"><div><h4>Registrations per week</h4>{_weekly_bars(weeks)}</div>'
-                      f'<div><h4>Repeat registrations per week</h4>{_weekly_line(weeks)}</div></div>', "trend",
-                      "Hover over a week to see the numbers. If the orange line keeps rising, more people are coming back to register again. "
-                      "That's a signal to check new registrations against the existing list on the spot, or to pause and verify.")
-    act_tab = _panel("act", "Where to act", "Which locations and which enumerators need attention first.", f"""
+                      f'<div><h4>Duplicate registrations per week (%)</h4>{_weekly_line(weeks)}</div></div>', "trend",
+                      "Hover over a week to view the figures. A sustained increase in the orange line indicates that previously registered individuals "
+                      "are registering again. New registrations should then be checked against the existing list at the point of registration, or registration paused for verification.")
+    act_tab = _panel("act", "Priority areas", "Locations and trends that require attention.", f"""
 {trend}
-{_card("Location hotspots", "Darker orange means more repeat registrations. Low national ID coverage makes repeats harder to catch.",
+{_card("Location hotspots", "Darker shading indicates a higher share of duplicate registrations. Low national ID coverage makes duplicates harder to detect.",
        '<div class="toolbar"><label>Region <select id="regionFilter" aria-label="Filter by region"></select></label><span class="sp"></span>'
-       '<button class="btn no-print" id="dlWoreda">⤓ Download list (CSV)</button></div>'
+       '<button class="btn no-print" id="dlWoreda">⤓ Download (CSV)</button></div>'
        '<div class="tbl-wrap"><table id="woredaTbl"><thead></thead><tbody></tbody></table></div>', "hotspots",
-       "Click a column name to sort. Use the region filter to narrow the list. A location with many repeats and few national IDs "
-       "is the best candidate for a verification visit or national ID enrolment.")}
-{_card("Enumerator performance", "Each dot is one enumerator. Orange dots are well above the team average and may need coaching.",
-       (_enum_scatter(data["enumerators"]) if data["enumerators"] else "") +
-       '<div class="toolbar" style="margin-top:14px"><label><input type="checkbox" id="flagOnly"> Show only those who need coaching</label>'
-       '<span class="sp"></span><button class="btn no-print" id="dlEnum">⤓ Download list (CSV)</button></div>'
-       '<div class="tbl-wrap" style="max-height:380px;overflow-y:auto"><table id="enumTbl"><thead></thead><tbody></tbody></table></div>', "enumerators",
-       "Use this to plan coaching, not to blame. A high repeat rate can also mean the enumerator worked where many people tried to "
-       "register twice. 'Well above average' means more than 1.5 standard deviations above the team.")}""")
+       "Select a column heading to sort the table, or filter by region. Locations with a high duplicate rate and low national ID coverage "
+       "should be prioritised for verification visits or national ID enrolment.")}
+<p class="note">Enumerator results are reported in the <a href="#performance" data-goto="performance">Performance</a> tab.</p>""")
 
     # ---------------- Data quality tab
     by_rule = issues.groupby(["rule", "severity"])["record_id"].nunique().reset_index(name="n").sort_values("n", ascending=False)
     rule_rows = [(r.rule, r.n, CRIT if r.severity == "critical" else WARN,
-                  f"{r.rule}: {r.n:,} registrations ({'must fix' if r.severity == 'critical' else 'should fix'})")
+                  f"{r.rule}: {r.n:,} registrations ({'critical' if r.severity == 'critical' else 'warning'})")
                  for r in by_rule.itertuples()]
     fixes = pd.DataFrame(ins.get("source_fixes", []))
     fixes_html = ""
     if not fixes.empty:
-        fixes = fixes.rename(columns={"rule": "Problem", "records": "Registrations", "fix": "How to stop it in the registration form"})
+        fixes = fixes.rename(columns={"rule": "Error", "records": "Registrations", "fix": "Recommended change to the registration form"})
         fixes_html = _table(fixes)
     plain = {"id_number": "national ID", "phone": "phone number", "grandfather_name": "grandfather's name", "father_name": "father's name",
              "first_name": "first name", "date_of_birth": "birth date", "household_size": "household size"}
     comp_rows = [(plain.get(r.field, r.field.replace("_", " ")), float(r.filled_pct), "var(--c4)" if r.filled_pct < 80 else "var(--c1)",
-                  f"{r.field.replace('_', ' ')}: filled in {r.filled_pct}% of registrations")
+                  f"{plain.get(r.field, r.field)}: completed in {r.filled_pct}% of registrations")
                  for r in comp.sort_values("filled_pct").itertuples()]
-    quality_tab = _panel("quality", "Data quality", "Which errors are most common, and how to stop them happening.", f"""
-{_card("Most common errors", "Number of registrations with each problem.",
-       '<div class="legend"><span class="lg"><i style="background:' + CRIT + '"></i>Must fix: the record can\'t be used until corrected</span>'
-       '<span class="lg"><i style="background:' + WARN + '"></i>Should fix: usable, but needs correcting</span></div>'
+    quality_tab = _panel("quality", "Data quality", "The most frequent data errors and how to prevent them.", f"""
+{_card("Most frequent errors", "Number of registrations affected by each error.",
+       '<div class="legend"><span class="lg"><i style="background:' + CRIT + '"></i>Critical: the record cannot be used until corrected</span>'
+       '<span class="lg"><i style="background:' + WARN + '"></i>Warning: the record can be used but should be corrected</span></div>'
        + _hbars(rule_rows, label_w=290, aria="Registrations with each error"), "rules",
-       "Each bar is one check the system runs on every registration. Hover over a bar to see the exact number.")}
-{_card("Stop errors at the source", "Fixing the registration form is cheaper than cleaning data afterwards.", fixes_html, "fixes")}
-{_card("How complete is the data?", "Share of registrations with each field filled in. Yellow fields are below 80%.",
+       "Each bar represents one validation check applied to every registration. Hover over a bar to view the exact figure.")}
+{_card("Preventing errors at the source", "Correcting the registration form is more efficient than cleaning data afterwards.", fixes_html, "fixes")}
+{_card("Data completeness", "Percentage of registrations with each field completed. Fields below 80% are shown in yellow.",
        _hbars(comp_rows, label_w=170, unit="%", aria="Share of registrations with each field filled in"), "completeness",
-       "National ID and phone number are the most useful fields for spotting repeats. Low completeness there means more cases need a person to check.")}""")
+       "National ID and phone number are the most useful fields for detecting duplicates. Low completeness in these fields increases the number of cases requiring manual review.")}""")
 
     # ---------------- Duplicates tab
-    dup_tab = _panel("duplicates", "Duplicates", "Examples of people registered more than once, and the pairs a person should check.", f"""
-{_card("Examples of repeat registrations found", "Same person, different spelling, birth date or phone format.", _example_clusters(gold, raw), "examples")}
-{_card("Pairs for a quick check", "These look alike but aren't certain. A person should confirm each one before merging.",
+    dup_tab = _panel("duplicates", "Duplicates", "Examples of duplicate registrations and the records that require manual review.", f"""
+{_card("Examples of duplicate registrations identified", "The same individual recorded with different spellings, dates of birth or phone number formats.", _example_clusters(gold, raw), "examples")}
+{_card("Records requiring manual review", "These pairs are similar but not conclusive. Each should be confirmed by a reviewer before merging.",
        '<div class="toolbar"><span>' + _fmt(len(review_rows)) + ' pairs</span><span class="sp"></span>'
        '<button class="btn no-print" id="dlReview">⤓ Download all (CSV)</button></div>'
        '<div class="tbl-wrap" style="max-height:420px;overflow-y:auto"><table id="reviewTbl" class="small"><thead></thead><tbody></tbody></table></div>',
-       "review", "Similarity runs from 0 (nothing alike) to 1 (identical). The last column says why the system wasn't sure.")}
-{_card("How alike are the compared pairs?", "Each compared pair gets a similarity score between 0 and 1.", _score_hist(scored), "scores",
-       f"Blue pairs were judged to be different people. Orange pairs ({REVIEW_AT} to {MATCH_AT}) go to a person. Green pairs ({MATCH_AT} and above) are merged automatically.")}""")
+       "review", "Similarity ranges from 0 (no similarity) to 1 (identical). The final column states why the case requires review.")}
+{_card("Distribution of similarity scores", "Each compared pair receives a similarity score between 0 and 1.", _score_hist(scored), "scores",
+       f"Blue: treated as different individuals. Orange ({REVIEW_AT} to {MATCH_AT}): referred for manual review. Green ({MATCH_AT} and above): merged automatically.")}""")
 
-    # ---------------- Performance tab
-    perf = []
+    # ---------------- Performance tab: system performance, then staff (enumerator) performance
+    perf = ['<div class="subhead">System performance</div>']
     if pm:
         b = m["baseline"]
         perf.append(_tiles([
-            ("People merged by mistake", _fmt(pm["fp"]), "lower is better", "var(--c3)"),
-            ("Repeats caught automatically", _pct(pm["recall"]), f"vs {_pct(b['recall'], 0)} with exact matching", "var(--c1)"),
-            ("Comparisons skipped", f"{100 * (1 - summary['candidate_pairs'] / summary['all_possible_pairs']):.1f}%",
-             f"only {_fmt(summary['candidate_pairs'])} pairs needed checking", "var(--c2)"),
+            ("Incorrect merges", _fmt(pm["fp"]), "target: zero", "var(--c3)"),
+            ("Duplicates identified automatically", _pct(pm["recall"]), f"compared with {_pct(b['recall'], 0)} using exact matching", "var(--c1)"),
+            ("Comparisons avoided", f"{100 * (1 - summary['candidate_pairs'] / summary['all_possible_pairs']):.1f}%",
+             f"only {_fmt(summary['candidate_pairs'])} pairs required scoring", "var(--c2)"),
             ("Processing time", f"{summary['runtime_s']} s", f"for {_fmt(n_in)} registrations", "var(--c4)"),
         ]))
         perf.append(_card("Accuracy compared with exact matching",
-                          f"Exact matching (same spelling, same birth date) misses {_pct(1 - b['recall'], 0)} of repeats. This system catches {_pct(pm['recall'])} on its own.",
+                          f"Exact matching (identical spelling and date of birth) misses {_pct(1 - b['recall'], 0)} of duplicates. "
+                          f"This system identifies {_pct(pm['recall'])} automatically.",
                           _accuracy_chart(m), "accuracy",
-                          "Correct merges (precision): of the records joined together, how many really were the same person. "
-                          "Duplicates caught (recall): of all real repeats, how many were found. Overall score (F1) combines the two."))
+                          "Correct merges (precision): the share of merged records that relate to the same individual. "
+                          "Duplicates identified (recall): the share of all actual duplicates that were found. "
+                          "Overall score (F1): a combined measure of both."))
     if data["curve"]:
-        perf.append(_card("Choose the right setting", "Drag the slider to see what happens if the system merges more or less automatically.", f"""
+        perf.append(_card("Selecting the merge threshold", "Use the slider to see how changing the threshold affects accuracy and reviewer workload.", f"""
 <label for="thr" style="display:block;font-size:13.5px;color:var(--text-secondary);margin-bottom:4px">Merge automatically when similarity is at least
 <b id="tVal" style="color:var(--text-primary);font-size:16px">{MATCH_AT}</b> <span style="color:var(--text-muted)">(current setting: {MATCH_AT})</span></label>
 <input id="thr" type="range" min="{data['curve'][0]['t']}" max="{data['curve'][-1]['t']}" step="0.01" value="{MATCH_AT}">
 <div class="outs">
 <div class="out" style="--oc:var(--c3)"><div class="lbl">Merged automatically</div><div class="big" id="tAuto">–</div></div>
-<div class="out" style="--oc:var(--c4)"><div class="lbl">Sent to a person</div><div class="big" id="tReview">–</div></div>
-<div class="out" style="--oc:var(--c4)"><div class="lbl">Checking time (2 min each)</div><div class="big" id="tHours">–</div></div>
+<div class="out" style="--oc:var(--c4)"><div class="lbl">Referred for review</div><div class="big" id="tReview">–</div></div>
+<div class="out" style="--oc:var(--c4)"><div class="lbl">Review time (2 min per pair)</div><div class="big" id="tHours">–</div></div>
 <div class="out" style="--oc:var(--c1)"><div class="lbl">Correct merges</div><div class="big" id="tP">–</div></div>
-<div class="out" style="--oc:var(--c2)"><div class="lbl">Repeats caught</div><div class="big" id="tR">–</div></div>
-<div class="out" style="--oc:var(--c5)"><div class="lbl">Merged by mistake</div><div class="big" id="tFP">–</div></div></div>
+<div class="out" style="--oc:var(--c2)"><div class="lbl">Duplicates identified</div><div class="big" id="tR">–</div></div>
+<div class="out" style="--oc:var(--c5)"><div class="lbl">Incorrect merges</div><div class="big" id="tFP">–</div></div></div>
 <p class="advice" id="tAdvice"></p>
-<div class="legend"><span class="lg"><i style="background:var(--c1)"></i>Correct merges</span><span class="lg"><i style="background:var(--c2)"></i>Duplicates caught</span></div>
+<div class="legend"><span class="lg"><i style="background:var(--c1)"></i>Correct merges</span><span class="lg"><i style="background:var(--c2)"></i>Duplicates identified</span></div>
 {_threshold_chart(data['curve'])}""", "explorer",
-            "Moving left merges more automatically but risks joining different people, which could cut someone off assistance. "
-            "Moving right is safer but sends more pairs to a person. The dashed line is your choice."))
+            "A lower threshold merges more records automatically but risks combining different individuals, which could result in an "
+            "eligible person losing assistance. A higher threshold is safer but refers more cases for manual review. "
+            "The dashed line shows the selected threshold."))
     if bench:
         rows_b = pd.DataFrame([{"Registrations": _fmt(x["records"]), "Time": f'{x["seconds"]} s',
                                 "Per second": _fmt(x["records_per_second"]),
-                                "Comparisons skipped": f'{100 * (1 - x["pairs_scored"] / x["all_pairs"]):.2f}%',
-                                "Correct merges": _pct(x["precision"]), "Repeats caught": _pct(x["recall"])} for x in bench])
-        perf.append(_card("Speed and scale", f"Tested on {len(bench)} data sizes up to {_fmt(bench[-1]['records'])} registrations, on an ordinary laptop-class machine.",
+                                "Comparisons avoided": f'{100 * (1 - x["pairs_scored"] / x["all_pairs"]):.2f}%',
+                                "Correct merges": _pct(x["precision"]), "Duplicates identified": _pct(x["recall"])} for x in bench])
+        perf.append(_card("Speed and scalability", f"Tested on {len(bench)} dataset sizes, up to {_fmt(bench[-1]['records'])} registrations, on standard hardware.",
                           _bench_chart(bench) + "<h4>Detailed results</h4>" + _table(rows_b), "scale",
-                          "Speed stays steady at about the same number of registrations per second as data grows, and accuracy stays high. "
-                          "A national-scale list would run in batches by region."))
-    perf.append(_card("Built-in quality checks", "The code checks itself every time it changes.", """
+                          "Processing speed remains stable as the dataset grows, and accuracy remains high. "
+                          "National-scale lists can be processed in regional batches."))
+    perf.append(_card("Quality assurance", "Automated checks run every time the code changes.", f"""
 <div class="trust">
-<div><b><span class="ok">✓</span>19 automated code tests</b>Phone formats, spelling variants, sibling protection, accuracy on fresh random data.</div>
-<div><b><span class="ok">✓</span>29 data tests in the warehouse</b>Unique IDs, valid values, every registration linked to a person.</div>
-<div><b><span class="ok">✓</span>Runs on every change</b>GitHub Actions runs everything automatically, and the badge on the code page shows the result.</div>
-<div><b><span class="ok">✓</span>Same results every time</b>Fixed rules and settings, so a run can be repeated and audited.</div>
+<div><b><span class="ok">✓</span>{tests_n} automated code tests</b>Covering phone formats, spelling variants, sibling protection, file formats and accuracy on new test data.</div>
+<div><b><span class="ok">✓</span>29 data tests in the warehouse</b>Checking unique IDs, valid values, and that every registration is linked to an individual.</div>
+<div><b><span class="ok">✓</span>Automatic testing on every change</b>GitHub Actions runs all checks automatically; the result is displayed on the code page.</div>
+<div><b><span class="ok">✓</span>Reproducible results</b>Fixed rules and settings ensure that each run can be repeated and audited.</div>
 </div>""", "qa"))
-    perf_tab = _panel("performance", "Performance", "How accurate, how fast, and how reliable the system is.", "".join(perf))
+    perf.append('<div class="subhead">Enumerator performance</div>')
+    if data["enumerators"]:
+        flagged_n = sum(1 for e in data["enumerators"] if e["flag"])
+        avg_err = sum(e["issue_rate"] for e in data["enumerators"]) / len(data["enumerators"])
+        avg_dup = sum(e["duplicate_rate"] for e in data["enumerators"]) / len(data["enumerators"])
+        perf.append(_tiles([
+            ("Enumerators", _fmt(len(data["enumerators"])), "with registrations in this dataset", "var(--c1)"),
+            ("Average error rate", f"{avg_err:.1f}%", "of each enumerator's registrations", "var(--c4)"),
+            ("Average duplicate rate", f"{avg_dup:.1f}%", "of each enumerator's registrations", "var(--c2)"),
+            ("Follow-up recommended", _fmt(flagged_n), "well above the team average", "var(--c5)"),
+        ]))
+        perf.append(_card("Error and duplicate rates by enumerator",
+                          "Each point represents one enumerator. Orange points are well above the team average, and follow-up is recommended.",
+                          _enum_scatter(data["enumerators"]) +
+                          '<div class="toolbar" style="margin-top:14px"><label><input type="checkbox" id="flagOnly"> Show only enumerators flagged for follow-up</label>'
+                          '<span class="sp"></span><button class="btn no-print" id="dlEnum">⤓ Download (CSV)</button></div>'
+                          '<div class="tbl-wrap" style="max-height:380px;overflow-y:auto"><table id="enumTbl"><thead></thead><tbody></tbody></table></div>',
+                          "enumerators",
+                          "These results are intended to guide coaching and support, not to assign blame. A high duplicate rate may also reflect "
+                          "work in an area where many individuals attempted to register more than once. 'Well above average' means more than "
+                          "1.5 standard deviations above the team mean. Duplicate rate counts registrations of individuals who were already registered."))
+    perf_tab = _panel("performance", "Performance", "Accuracy, speed and reliability of the system, and performance of registration staff.", "".join(perf))
 
     # ---------------- How it works tab
     step_cols = ["var(--c1)", "var(--c4)", "var(--c3)", "var(--c2)", "var(--c5)", "var(--c7)"]
-    steps = [("Collect", "Registrations come in from the field (here: realistic made-up data with known repeats)."),
-             ("Check", f"{len(by_rule)} checks find missing, invalid or unlikely values."),
-             ("Tidy", "Names, phone numbers and dates are put in one standard format. A sound-alike key links spellings like Mohammed and Mohamed."),
-             ("Shortlist", "Only records that share something (a phone, ID, birth date or similar name) are compared, which skips 99.9% of comparisons."),
-             ("Compare", "Each pair is scored on 8 details, with rules for siblings and different national IDs."),
-             ("Decide", "Clear matches merge, unclear ones go to a person, and one clean record is kept per person.")]
+    steps = [("Collect", "Registration data is received from the field. In this report, realistic synthetic data with known duplicates is used."),
+             ("Validate", f"{len(by_rule)} validation checks identify missing, invalid or implausible values."),
+             ("Standardise", "Names, phone numbers and dates are converted to a standard format. A phonetic key links spelling variants such as Mohammed and Mohamed."),
+             ("Shortlist", "Only records that share a key attribute (phone number, national ID, date of birth or a similar name) are compared, avoiding 99.9% of comparisons."),
+             ("Compare", "Each pair is scored across eight fields, with specific rules for siblings and conflicting national IDs."),
+             ("Decide", "Clear matches are merged, uncertain cases are referred for review, and one record is retained per individual.")]
     steps_html = '<div class="steps">' + "".join(f'<div class="step" style="--sc:{c}"><b>{a}</b>{t}</div>'
                                                  for (a, t), c in zip(steps, step_cols)) + "</div>"
     stack = '<div class="stack">' + "".join(f'<span style="--sc:{c}">{t}</span>' for t, c in zip(
         ["Python", "pandas", "RapidFuzz", "SQL", "dbt", "DuckDB", "BigQuery", "LLM APIs", "pytest", "GitHub Actions"],
         ["var(--c1)", "var(--c1)", "var(--c3)", "var(--c2)", "var(--c2)", "var(--c4)", "var(--c1)", "var(--c7)", "var(--c3)", "var(--c5)"])) + "</div>"
-    method_tab = _panel("method", "How it works", "The same steps a registration team follows before a distribution list goes out.", f"""
-{_card("Six steps", None, steps_html)}
-{_card("Tools used", "Open-source tools that run on a laptop or in the cloud.", stack +
-       f'<p class="note" style="margin-top:12px">Run it on your own file: <code>python run_pipeline.py --input your_file.csv</code>. '
-       f'Technical documentation of the data models: <a href="{pages}/dbt-docs.html">dbt docs</a>. Source code: '
-       f'<a href="https://github.com/{repo}">github.com/{repo}</a>.</p>')}
-{_card("Privacy", None, '<p class="lede" style="margin:0">Every record in this report is made up. No real person is represented. '
-       'On real data, the system runs inside the organisation\'s own environment, so no personal data has to leave it.</p>')}""")
+    formats = pd.DataFrame([
+        ("CSV or text", ".csv, .txt", "Comma, semicolon or tab separated; the separator is detected automatically."),
+        ("Tab-separated", ".tsv", "One record per row."),
+        ("Excel", ".xlsx, .xlsm", "The first sheet is read by default; a specific sheet can be named. Older .xls files should be saved as .xlsx."),
+        ("JSON", ".json", "A list of records."),
+        ("JSON Lines", ".jsonl, .ndjson", "One record per line."),
+        ("Parquet", ".parquet", "Requires the optional pyarrow package."),
+    ], columns=["Format", "File extension", "Notes"])
+    formats_html = f"""{_table(formats)}
+<h4>Required and recommended fields</h4>
+<p class="lede" style="margin-bottom:8px"><b>Required:</b> first name, father's name, sex, date of birth.<br>
+<b>Recommended:</b> grandfather's name, phone number, national ID, region, zone, woreda, kebele, household size, registration date, enumerator.
+Missing recommended fields reduce accuracy and increase manual review, but do not prevent processing.</p>
+<h4>Column names</h4>
+<p class="lede" style="margin-bottom:8px">Column names are recognised automatically, including typical exports from KoboToolbox, ODK and SurveyCTO.
+For example, "First Name", "DOB", "Phone Number", "Fayda ID" and "_submitted_by" are matched to the correct fields, and grouped names
+such as "beneficiary/first_name" are supported. A template file is available at <code>templates/registration_template.csv</code>.</p>
+<h4>How to run it on a file</h4>
+<p class="lede" style="margin:0"><code>python run_pipeline.py --input registrations.xlsx --sheet "Registrations"</code><br>
+If a required column cannot be found, the system stops and lists the missing fields, so that no incomplete data is processed silently.</p>"""
+    method_tab = _panel("method", "How it works", "The process follows the steps a registration team would take before a distribution list is finalised.", f"""
+{_card("Process overview", None, steps_html)}
+{_card("Which data formats can it accept?", "Registration data can be provided in the formats most commonly exported by data collection tools and databases.", formats_html, "formats")}
+{_card("Tools", "Open-source tools that run locally or in the cloud.", stack +
+       f'<p class="note" style="margin-top:12px">Technical documentation of the data models: <a href="{pages}/dbt-docs.html">dbt docs</a>. '
+       f'Source code: <a href="https://github.com/{repo}">github.com/{repo}</a>.</p>')}
+{_card("Data protection", None, '<p class="lede" style="margin:0">All records in this report are synthetic; no real individuals are represented. '
+       'When applied to real data, the system runs within the organisation\'s own environment, so personal data does not need to leave it. '
+       'Results are written only to local output files.</p>')}""")
 
     # ---------------- Feedback tab
-    fb_tab = _panel("feedback", "Feedback", "Tell us what else you need: a new breakdown, a change, or something that looks wrong.", f"""
-<section class="card" id="fbCard"><h2>Send a request</h2><p class="lede">Takes about a minute. Each request becomes a tracked item, so you can follow it.</p>
+    fb_tab = _panel("feedback", "Feedback", "Submit requests for additional analysis, changes or corrections.", f"""
+<section class="card" id="fbCard"><h2>Submit a request</h2><p class="lede">This takes approximately one minute. Each request is logged as a tracked item so that its progress can be followed.</p>
 <form id="fbForm" class="fb-grid" novalidate>
-<label class="f">Your name (optional)<input id="fbName" type="text" autocomplete="name"></label>
+<label class="f">Name (optional)<input id="fbName" type="text" autocomplete="name"></label>
 <label class="f">Role or office (optional)<input id="fbRole" type="text" placeholder="e.g. Programme Officer, area office"></label>
-<label class="f">What kind of feedback?<select id="fbType"><option>New requirement</option><option>New chart or breakdown</option>
-<option>Something looks wrong</option><option>Question</option><option>Other</option></select></label>
-<label class="f">Which part of the report?<select id="fbSection"><option>Whole report</option><option>Summary</option><option>Where to act</option>
-<option>Data quality</option><option>Duplicates</option><option>Performance</option></select></label>
-<label class="f">How urgent?<select id="fbPriority"><option>Nice to have</option><option>Important</option><option>Needed for a decision soon</option></select></label>
-<label class="f">Short title<input id="fbSummary" type="text" placeholder="e.g. Show repeats by kebele"></label>
-<label class="f full">What do you need, or what did you notice? *<textarea id="fbDetail" required placeholder="Describe it in your own words"></textarea></label>
-<label class="f full">What decision would this help you make? (optional)<input id="fbDecision" type="text" placeholder="e.g. Where to send verification teams next month"></label>
+<label class="f">Type of request<select id="fbType"><option>New requirement</option><option>Additional analysis or breakdown</option>
+<option>Data or report issue</option><option>Question</option><option>Other</option></select></label>
+<label class="f">Section of the report<select id="fbSection"><option>Whole report</option><option>Summary</option><option>Priority areas</option>
+<option>Data quality</option><option>Duplicates</option><option>Performance</option><option>How it works</option></select></label>
+<label class="f">Priority<select id="fbPriority"><option>Low</option><option>Medium</option><option>High: needed for an upcoming decision</option></select></label>
+<label class="f">Title<input id="fbSummary" type="text" placeholder="e.g. Duplicate rate by kebele"></label>
+<label class="f full">Description of the request or issue *<textarea id="fbDetail" required placeholder="Please describe the request in your own words"></textarea></label>
+<label class="f full">Which decision will this inform? (optional)<input id="fbDecision" type="text" placeholder="e.g. Allocation of verification teams next month"></label>
 <div class="full" style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn primary" type="submit">Prepare request</button>
-<a id="fbLink" class="btn" href="#" target="_blank" rel="noopener" style="display:none">Send on GitHub ↗</a>
+<a id="fbLink" class="btn" href="#" target="_blank" rel="noopener" style="display:none">Submit on GitHub ↗</a>
 <button class="btn" type="button" id="fbCopy">Copy text</button></div></form><div id="fbStatus" role="status"></div></section>
-{_card("What happens next", None, '<div class="next"><div><b>1. Logged</b>Your request is saved as a tracked item.</div>'
-       '<div><b>2. Reviewed</b>It is checked and given a priority.</div><div><b>3. Built</b>The change is made and tested.</div>'
-       '<div><b>4. Updated</b>The report refreshes, and you can see it on the request.</div></div>')}""")
+{_card("Next steps", None, '<div class="next"><div><b>1. Recorded</b>The request is logged as a tracked item.</div>'
+       '<div><b>2. Assessed</b>The request is reviewed and prioritised.</div><div><b>3. Implemented</b>The change is developed and tested.</div>'
+       '<div><b>4. Published</b>The report is updated and the request is marked as complete.</div></div>')}""")
 
     tabs_html = "".join(f'<button class="tab" role="tab" id="tab-{i}" data-tab="{i}" aria-controls="panel-{i}" style="--tc:{c}">'
                         f'<span class="d"></span>{n}</button>' for i, n, c, _, _ in TABS)
@@ -833,37 +874,41 @@ def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.Da
 <div id="scrim" class="scrim"></div>
 <aside id="help" class="drawer" aria-hidden="true" aria-label="Help">
 <button class="btn x" id="helpClose">Close ✕</button>
-<h3>How to use this report</h3>
-<p style="color:var(--text-secondary);font-size:13.5px;margin:0">It takes about 5 minutes. Nothing you type is sent anywhere unless you choose to send feedback.</p>
-<p><button class="btn primary" data-tour>▶ Take the 1-minute tour</button></p>
-<h4>Start with your tab</h4>
-<ul><li><b>Managers:</b> <i>Summary</i>. Read "What to do next" and try the money calculator.</li>
-<li><b>Area offices and field coordinators:</b> <i>Where to act</i>, for locations and enumerators.</li>
-<li><b>Data teams:</b> <i>Data quality</i> and <i>Duplicates</i>.</li>
-<li><b>Donors, auditors, reviewers:</b> <i>Performance</i>, to see how much you can trust it.</li></ul>
-<h4>Things you can do</h4>
-<ul><li>Hover over any bar, dot or line to see the exact number.</li>
-<li>Click a column name in a table to sort it, and click again to reverse.</li>
-<li>Filter by region, or show only enumerators who need coaching.</li>
-<li>Download any list as a spreadsheet (CSV).</li>
-<li>Type into the calculator or drag the slider, and the numbers update straight away.</li>
-<li>Open "How to read this" under a title for a short explanation.</li>
-<li>Share a tab directly: the address ends with its name, for example <code>#performance</code>.</li></ul>
-<h4>Words used</h4>
+<h3>Using this report</h3>
+<p style="color:var(--text-secondary);font-size:13.5px;margin:0">Reading time is approximately five minutes. No information entered in this report is transmitted unless you choose to submit feedback.</p>
+<p><button class="btn primary" data-tour>▶ Start the guided tour</button></p>
+<h4>Recommended starting point</h4>
+<ul><li><b>Programme management:</b> <i>Summary</i>, including the recommended actions and the savings estimate.</li>
+<li><b>Area offices and field coordination:</b> <i>Priority areas</i> for locations, and <i>Performance</i> for enumerator results.</li>
+<li><b>Information management and data teams:</b> <i>Data quality</i> and <i>Duplicates</i>.</li>
+<li><b>Donors and auditors:</b> <i>Performance</i>, for accuracy, reliability and quality assurance.</li></ul>
+<h4>Available features</h4>
+<ul><li>Hover over any bar, point or line to view the exact figure.</li>
+<li>Select a column heading to sort a table; select it again to reverse the order.</li>
+<li>Filter locations by region, or show only enumerators flagged for follow-up.</li>
+<li>Download tables as CSV files for use in Excel.</li>
+<li>Enter values in the savings estimate, or move the threshold slider; results update immediately.</li>
+<li>Select "How to read this" below a title for a short explanation.</li>
+<li>Share a specific tab using its link, for example <code>#performance</code>.</li></ul>
+<h4>Glossary</h4>
 <dl>
-<dt>Repeat registration (duplicate)</dt><dd>Someone registered again when they were already on the list.</dd>
-<dt>Real people</dt><dd>The number of different people after repeats are removed.</dd>
-<dt>Quick check (review)</dt><dd>A pair that looks alike but isn't certain, so a person decides.</dd>
-<dt>Similarity</dt><dd>How alike two registrations are, from 0 (nothing alike) to 1 (identical).</dd>
-<dt>Correct merges (precision)</dt><dd>Of the records joined together, the share that really were the same person.</dd>
-<dt>Repeats caught (recall)</dt><dd>Of all real repeats, the share that were found.</dd>
-<dt>Must fix / should fix</dt><dd>Must fix: the record can't be used yet. Should fix: usable but needs correcting.</dd>
+<dt>Duplicate registration</dt><dd>A registration for an individual who is already on the list.</dd>
+<dt>Unique individuals</dt><dd>The number of distinct people once duplicates have been removed.</dd>
+<dt>Manual review</dt><dd>A pair of records that are similar but not conclusive, and which a reviewer must confirm.</dd>
+<dt>Similarity score</dt><dd>A measure of how alike two registrations are, from 0 (no similarity) to 1 (identical).</dd>
+<dt>Merge threshold</dt><dd>The similarity score at or above which records are merged automatically.</dd>
+<dt>Correct merges (precision)</dt><dd>The share of merged records that relate to the same individual.</dd>
+<dt>Duplicates identified (recall)</dt><dd>The share of all actual duplicates that were found.</dd>
+<dt>Critical / warning</dt><dd>Critical errors prevent a record from being used until corrected; warnings should be corrected but do not block use.</dd>
 </dl>
-<h4>Questions</h4>
-<dl><dt>Is this real data?</dt><dd>No. Every record is made up. No real person is shown.</dd>
-<dt>Can it run on our data?</dt><dd>Yes. The accuracy numbers need known answers, so they only appear for test data.</dd>
-<dt>Who decides the setting?</dt><dd>The programme does. The Performance tab shows the trade-off, so the choice can be agreed and written down.</dd>
-<dt>Something missing?</dt><dd><a href="#feedback" data-goto="feedback">Send feedback</a>.</dd></dl></aside>
+<h4>Frequently asked questions</h4>
+<dl><dt>Is this real data?</dt><dd>No. All records are synthetic, and no real individuals are represented.</dd>
+<dt>Which data formats can it accept?</dt><dd>CSV and text files, TSV, Excel (.xlsx), JSON, JSON Lines and Parquet. Common column names from KoboToolbox, ODK and SurveyCTO exports are recognised automatically.
+<a href="#method" data-goto="method">Full details</a>.</dd>
+<dt>Which fields are required?</dt><dd>First name, father's name, sex and date of birth. Phone number, national ID and location are strongly recommended.</dd>
+<dt>Can it be used with our data?</dt><dd>Yes. Accuracy figures require known answers, so they are shown for test data only.</dd>
+<dt>Who sets the merge threshold?</dt><dd>The programme. The Performance tab shows the trade-off so that the decision can be agreed and documented.</dd>
+<dt>How can I request a change?</dt><dd>Use the <a href="#feedback" data-goto="feedback">Feedback</a> tab.</dd></dl></aside>
 <button class="fab no-print" data-open-help aria-label="Open help">?</button>
 <div id="tourBox" role="dialog" aria-live="polite"><p id="tourText"></p><div class="row"><span id="tourCount" style="font-size:12.5px;opacity:.8"></span>
 <span style="display:flex;gap:8px"><button class="btn" id="tourEnd">Skip</button><button class="btn" id="tourPrev">Back</button>
@@ -871,17 +916,17 @@ def build(summary: dict, issues: pd.DataFrame, comp: pd.DataFrame, scored: pd.Da
 
     return f"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Beneficiary deduplication and data-quality report: repeat registrations, data errors, where to act, and performance.">
+<meta name="description" content="Beneficiary registration quality and deduplication report: duplicate registrations, data errors, priority areas and performance.">
 <title>Beneficiary Deduplication &amp; Data-Quality Pipeline — Report</title><style>{CSS}</style></head>
 <body><div class="viz-root">
 <div class="strip"><div class="in"><span>Portfolio project by <b>{E(author)}</b></span>
 <a href="https://github.com/{repo}">View the code</a><a href="{pages}/dbt-docs.html">Technical docs</a></div></div>
 <div class="wrap">
-<header class="hero"><h1>Who is really on the list?</h1>
-<p>This report checks beneficiary registrations for errors, finds people registered more than once, even with different spellings,
-birth dates or phone formats, and shows managers where to act.</p>
-<div class="chips"><span class="chip">Made-up test data: no real people</span><span class="chip">Updated {date.today().strftime('%d %b %Y')}</span>
-<span class="chip">{_fmt(n_in)} registrations</span><button class="btn primary" data-tour>▶ 1-minute tour</button>
+<header class="hero"><h1>Beneficiary Registration Quality and Deduplication Report</h1>
+<p>This report reviews beneficiary registration data for errors, identifies individuals registered more than once (including where
+names, dates of birth or phone numbers are recorded differently), and sets out recommended actions for programme management.</p>
+<div class="chips"><span class="chip">Synthetic test data: no real individuals</span><span class="chip">Updated {date.today().strftime('%d %b %Y')}</span>
+<span class="chip">{_fmt(n_in)} registrations</span><button class="btn primary" data-tour>▶ Guided tour (1 minute)</button>
 <button class="btn no-print" data-print>Print / save as PDF</button></div></header>
 <nav class="tabs" role="tablist" aria-label="Report sections">{tabs_html}<span class="sp"></span>
 <button class="btn no-print" data-open-help>Help</button></nav>

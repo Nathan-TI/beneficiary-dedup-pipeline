@@ -1,3 +1,4 @@
 # Only needed for the optional steps
 dbt-bigquery>=1.9          # run the dbt project on BigQuery
 google-cloud-bigquery>=3.0 # scripts/load_bigquery.py
+pyarrow>=15                # read Parquet input files

@@ -1,0 +1,35 @@
+name: Feedback or new requirement
+description: Request a new insight, report a data issue, or ask a question about the report.
+labels: [feedback]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of feedback
+      options: [New requirement, New insight or breakdown, Data issue, Question, Bug, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: section
+    attributes:
+      label: Section of the report
+      options: [Whole report, Decisions, Cost calculator, Threshold explorer, Registration trend, Location hotspots, Enumerators, Data quality, Duplicates / review queue]
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options: [Nice to have, Important, Blocking a decision]
+  - type: textarea
+    id: detail
+    attributes:
+      label: What do you need, or what did you notice?
+    validations:
+      required: true
+  - type: input
+    id: decision
+    attributes:
+      label: What decision would this help you make?
+  - type: input
+    id: from
+    attributes:
+      label: Your name and role (optional)

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from pipeline import dedup, evaluate, generate, normalize, quality, report
+from pipeline import dedup, evaluate, generate, insights, normalize, quality, report
 
 
 def main() -> None:
@@ -22,6 +22,8 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--input", type=Path, help="CSV with the same columns as data/raw_records.csv")
     ap.add_argument("--out", type=Path, default=Path("output"))
+    ap.add_argument("--repo", default="Nathan-TI/beneficiary-dedup-pipeline",
+                    help="GitHub owner/repo that receives feedback from the report")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
@@ -87,7 +89,8 @@ def main() -> None:
         "metrics": metrics,
     }
     (args.out / "summary.json").write_text(json.dumps(summary, indent=2))
-    html = report.build(summary, issues, comp, scored, gold, raw)
+    ins = insights.build(raw, gold, issues, scored, clusters, truth)
+    html = report.build(summary, issues, comp, scored, gold, raw, ins, repo=args.repo)
     (args.out / "report.html").write_text(html, encoding="utf-8")
     Path("docs").mkdir(exist_ok=True)
     Path("docs/index.html").write_text(html, encoding="utf-8")

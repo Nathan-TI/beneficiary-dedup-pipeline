@@ -8,6 +8,17 @@ A Python + dbt pipeline that checks registration data for quality problems, find
 
 All data is **synthetic** and no real person is represented. Because the generator knows which records belong to the same person, accuracy is **measured against ground truth** rather than estimated.
 
+## The report: built for management decisions
+
+The [live report](https://nathan-ti.github.io/beneficiary-dedup-pipeline/) is generated on every run and works offline. It includes:
+
+- **Key findings and recommended actions**, generated from the data, each with an owner. Examples: remove duplicates before the next distribution, fix the top data-quality errors in the registration form, coach flagged enumerators, prioritise verification in hotspot woredas, expand national ID capture.
+- **Cost calculator**: enter a transfer value and number of months to see the assistance that removing duplicates avoids, plus the staff time needed to clear the review queue.
+- **Threshold explorer**: a slider showing how the auto-merge threshold trades accuracy (precision, recall, wrong merges) against reviewer workload, with a plain-language recommendation.
+- **Registration trend, location hotspots and enumerator performance**, with sortable and filterable tables.
+- **Help**: a guided 1-minute tour, a glossary, an FAQ, and a "How to read this" note under every section.
+- **Feedback form**: stakeholders describe a new requirement or issue, and it opens as a pre-filled GitHub issue (template in `.github/ISSUE_TEMPLATE/`). No server needed.
+
 ## Results (4,780 synthetic records)
 
 | Method | Precision | Recall | F1 |
@@ -111,7 +122,7 @@ pip install -r requirements.txt
 python run_pipeline.py                 # Python part only, 4,000 synthetic people (default)
 python run_pipeline.py --people 20000  # bigger run
 python run_pipeline.py --input your_file.csv   # your own data (no ground truth, so no accuracy scores)
-pytest -q                              # 17 tests
+pytest -q                              # 18 tests
 ```
 
 Outputs go to `output/`:
@@ -133,7 +144,8 @@ pipeline/
   normalize.py   name, phone, sex and date standardisation
   dedup.py       blocking, scoring, clustering, golden records
   evaluate.py    pairwise precision / recall / F1
-  report.py      HTML report (no external assets)
+  insights.py    management insights and recommended actions
+  report.py      interactive HTML report (no external assets)
   llm_review.py  optional LLM second opinion on the review queue
 dbt/             staging -> intermediate -> marts, tests, cross-database macros
 scripts/         load_bigquery.py

@@ -91,3 +91,20 @@ def test_llm_review_with_fake_model():
     actual_dupes = sum(person[a] == person[b] for a, b in zip(pairs.left, pairs.right))
     assert m["pairs_judged"] == 6 and m["missed_duplicates"] == actual_dupes and m["false_merges"] == 0
     assert llm_review.parse_reply("no json here")["same_person"] is None
+
+
+def test_insights_for_management():
+    from pipeline import insights
+    raw, truth = generate.generate(n_people=800, seed=5)
+    norm = normalize.normalize(raw)
+    scored = dedup.score_candidates(norm, dedup.candidate_pairs(norm))
+    matched = scored.loc[scored["decision"] == "match", ["left", "right"]].itertuples(index=False)
+    clusters = dedup.cluster(raw["record_id"], matched)
+    gold = dedup.golden_records(raw, clusters)
+    ins = insights.build(raw, gold, quality.run_checks(raw), scored, clusters, truth)
+    assert len(ins["recommendations"]) == 5
+    assert ins["duplicates"] == len(raw) - len(gold)          # re-registrations = records merged away
+    assert sum(w["registrations"] for w in ins["woredas"]) <= len(raw)
+    recalls = [c["recall"] for c in ins["curve"]]
+    assert recalls == sorted(recalls, reverse=True)           # stricter threshold never finds more
+    assert all(e["flag"] in (True, False) for e in ins["enumerators"])

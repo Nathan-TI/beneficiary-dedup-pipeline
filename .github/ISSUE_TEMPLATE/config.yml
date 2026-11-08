@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Open the report
+    url: https://nathan-ti.github.io/beneficiary-dedup-pipeline/
+    about: The live report also has a feedback form at the bottom.
